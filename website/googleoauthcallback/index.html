@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>HAMMO Google OAuth Callback</title>
+        <link rel="stylesheet" href="/css/shared.css">
+    </head>
+    <body>
+
+        
+        <header>
+            <div class="title">Happy Ants MMO</div>
+        </header>
+
+        <div>Create an new account.</div>
+        <form method="GET" onsubmit="submitForm()">
+            <div>
+                <label for="handle">Choose a handle: </label>
+                <input type="text" name="handle" id="handle-input" required>
+            </div>
+            <div>
+                <input type="submit" value="Create" id="submit">
+            </div>
+        </form>
+        
+        <script src="/js/util.js"></script>
+        <script src="/js/googleoauthcallback.js"></script>
+    </body>
+</html>
