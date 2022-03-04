@@ -2,6 +2,7 @@
 secrets.*
 data/
 .sass-cache/
+css/
 
 target/
 pom.xml.tag
