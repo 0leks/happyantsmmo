@@ -1,15 +1,13 @@
 package app;
 
-import static j2html.TagCreator.*;
-
-import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
+import java.util.concurrent.*;
 
+import org.eclipse.jetty.util.ConcurrentHashSet;
 import org.json.*;
 
 import accounts.*;
+import game.Coin;
 import io.javalin.Javalin;
 import io.javalin.http.HttpCode;
 import io.javalin.websocket.*;
@@ -17,10 +15,6 @@ import io.javalin.websocket.*;
 public class Chat {
 	
 	private static final int PORT = 7070;
-
-	private static Map<WsContext, String> userUsernameMap = new ConcurrentHashMap<>();
-	private static int nextUserNumber = 1; // Assign to username for next connecting user
-
 	
 	private static Map<String, WsContext> googleIDToContextMap = new ConcurrentHashMap<>();
 	private static Map<WsContext, AccountInfo> contextToAccountInfoMap = new ConcurrentHashMap<>();
@@ -88,7 +82,9 @@ public class Chat {
 			}
 		});
 		
-		Thread gameThread = new Thread(() -> updateFunction());
+		Thread updateThread = new Thread(() -> updateFunction());
+		Thread gameThread = new Thread(() -> gameFunction());
+		updateThread.start();
 		gameThread.start();
 	}
 	
@@ -105,8 +101,15 @@ public class Chat {
 			System.err.println(token);
 			AccountInfo info = Accounts.getAccountInfo(token);
 			System.err.println(info.handle + " joined game");
+			if (googleIDToContextMap.containsKey(info.googleid)) {
+				WsContext oldContext = googleIDToContextMap.get(info.googleid);
+				contextToAccountInfoMap.remove(oldContext);
+				oldContext.session.close();
+			}
 			googleIDToContextMap.put(info.googleid, ctx);
 			contextToAccountInfoMap.put(ctx, info);
+			changedLocations.add(info.id);
+			sendAll = true;
 			break;
 		}
 			
@@ -117,6 +120,7 @@ public class Chat {
 			AccountInfo info = contextToAccountInfoMap.get(ctx);
 			info.x = x;
 			info.y = y;
+			changedLocations.add(info.id);
 			
 			Accounts.updateLocation(info);
 			sendLocations();
@@ -140,37 +144,52 @@ public class Chat {
 		}
 	}
 	
+	private static Set<Coin> coins = new HashSet<>();
+	private static ConcurrentLinkedQueue<Coin> coinstosend = new ConcurrentLinkedQueue<>();
+	
+	private static void gameFunction() {
+		try {
+			while(true) {
+				Coin newcoin = Coin.makeCoin((int)(Math.random()*500), (int)(Math.random()*500));
+				coinstosend.add(newcoin);
+				coins.add(newcoin);
+				Thread.sleep(5000);
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	
+	private static Set<Integer> changedLocations = new HashSet<>();
+	private static boolean sendAll;
 	private static void sendLocations() {
 		JSONObject jo = new JSONObject()
 				.put("type", MessageType.MOVE);
 		
 		JSONArray players = new JSONArray();
 		for (AccountInfo info : contextToAccountInfoMap.values()) {
-			players.put(new JSONObject(info));
+			if (changedLocations.contains(info.id) || sendAll) {
+				changedLocations.remove(info.id);
+				players.put(new JSONObject(info));
+			}
 		}
-		jo.put("players", players);
+		if (!players.isEmpty())
+			jo.put("players", players);
+
+		JSONArray coinsArray = new JSONArray();
+		while (!coinstosend.isEmpty()) {
+			coinsArray.put(new JSONObject(coinstosend.remove()));
+		}
+		if (!coinsArray.isEmpty())
+			jo.put("coins", coinsArray);
+		
+		sendAll = false;
 		String tosend = jo.toString();
-//		System.err.println(tosend);
-		contextToAccountInfoMap.forEach((ctx, info) -> {
+		for (WsContext ctx : contextToAccountInfoMap.keySet()) {
 			if (ctx.session.isOpen()) {
 				ctx.send(tosend);
 			}
-		});
+		}
 	}
-
-	// Sends a message from one user to all users, along with a list of current
-	// usernames
-	private static void broadcastMessage(String sender, String message) {
-		userUsernameMap.keySet().stream().filter(ctx -> ctx.session.isOpen()).forEach(session -> {
-			session.send(new JSONObject().put("userMessage", createHtmlMessageFromSender(sender, message))
-					.put("userlist", userUsernameMap.values()).toString());
-		});
-	}
-
-	// Builds a HTML element with a sender-name, a message, and a timestamp
-	private static String createHtmlMessageFromSender(String sender, String message) {
-		return article(b(sender + " says:"),
-				span(attrs(".timestamp"), new SimpleDateFormat("HH:mm:ss").format(new Date())), p(message)).render();
-	}
-
 }

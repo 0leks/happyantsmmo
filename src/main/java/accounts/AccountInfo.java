@@ -27,13 +27,13 @@ public class AccountInfo {
 		this.id = id;
 	}
 
-	public String getGoogleid() {
-		return googleid;
-	}
-
-	public void setGoogleid(String googleid) {
-		this.googleid = googleid;
-	}
+//	public String getGoogleid() {
+//		return googleid;
+//	}
+//
+//	public void setGoogleid(String googleid) {
+//		this.googleid = googleid;
+//	}
 
 	public String getHandle() {
 		return handle;

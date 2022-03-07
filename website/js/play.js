@@ -10,6 +10,10 @@ ws.onopen = sendHello;
 
 
 const accessToken = getAccessToken();
+if (accessToken == null) {
+    document.location.href="/";
+}
+
 function sendHello() {
     let jsonData = {
         'type': 'HELLO',
@@ -64,29 +68,61 @@ function receiveMessage(msg) {
         id("me").setAttribute("cy", data.y);
     }
     else if (data.type == 'MOVE') {
-        console.log(data.players.length);
-        data.players.forEach(player => {
-            let group = id(player.id);
-            if (group == null) {
-                group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                group.setAttribute('id', player.id);
+        if ('players' in data) {
+            console.log(data.players.length);
+            data.players.forEach(player => {
+                let group = id(player.id);
+                if (group == null) {
+                    let radius = 50;
+                    group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    group.setAttribute('id', player.id);
+                    group.classList.add('player');
 
-                let circleElem = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                circleElem.setAttribute('r', 50);
-                group.appendChild(circleElem);
+                    let circleElem = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circleElem.setAttribute('r', radius);
+                    group.appendChild(circleElem);
 
-                let handleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                handleText.innerHTML = player.handle;
-                handleText.classList.add('handleText');
-                group.appendChild(handleText);
+                    let handleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    handleText.innerHTML = player.handle;
+                    handleText.classList.add('handleText');
+                    group.appendChild(handleText);
 
-                id("gamesvg").appendChild(group);
-            }
+                    // let image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+                    // image.setAttribute('href', 'https://picsum.photos/seed/' + player.id + '/' + (radius/2));
+                    // image.setAttribute('transform', 'translate(' + -radius/4 + ',' + -radius*3/4 + ')');
+                    // group.appendChild(image);
 
-            group.setAttribute('transform', 'translate(' + player.x + ',' + player.y + ')');
-            // console.log('handling player info');
-            // console.log(player);
-        });
+                    id("gamesvg").appendChild(group);
+                }
+
+                group.setAttribute('transform', 'translate(' + player.x + ',' + player.y + ')');
+                // console.log('handling player info');
+                // console.log(player);
+            });
+        }
+
+        if ('coins' in data) {
+            data.coins.forEach(coin => {
+                let group = id(coin.id);
+                if (group == null) {
+                    group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    group.setAttribute('id', 'coin' + coin.id);
+                    group.classList.add('coin');
+    
+                    let circleElem = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circleElem.setAttribute('r', 10);
+                    group.appendChild(circleElem);
+    
+                    let handleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    handleText.innerHTML = '1';
+                    group.appendChild(handleText);
+    
+                    id("gamesvg").appendChild(group);
+                }
+    
+                group.setAttribute('transform', 'translate(' + coin.x + ',' + coin.y + ')');
+            });
+        }
     }
     // id("chat").insertAdjacentHTML("afterbegin", data.userMessage);
     // id("userlist").innerHTML = data.userlist.map(user => "<li>" + user + "</li>").join("");

@@ -7,7 +7,19 @@ body {
     height: 100%;
 }
 
-.handleText {
+.player text {
     fill: white;
     text-anchor: middle;
+    dominant-baseline: middle;
+}
+
+.coin {
+    text {
+        fill: black;
+        text-anchor: middle;
+        dominant-baseline: middle;
+    }
+    circle {
+        fill: goldenrod;
+    }
 }
