@@ -5,6 +5,7 @@ import static j2html.TagCreator.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 
 import org.json.*;
 
@@ -38,9 +39,10 @@ public class Chat {
 //				broadcastMessage("Server", (username + " joined the chat"));
 			});
 			ws.onClose(ctx -> {
-//				String username = userUsernameMap.get(ctx);
-//				userUsernameMap.remove(ctx);
-				broadcastMessage("Server", "left the chat");
+				AccountInfo info = contextToAccountInfoMap.get(ctx);
+				System.err.println(info.handle + " disconnected");
+				googleIDToContextMap.remove(info.googleid);
+				contextToAccountInfoMap.remove(ctx);
 			});
 			ws.onMessage(ctx -> receiveMessage(ctx));
 		});
@@ -72,9 +74,9 @@ public class Chat {
 			}
 		});
 		app.post("/account", ctx -> {
-			System.err.println("body: " + ctx.body());
-			System.err.println("url: " + ctx.fullUrl());
-			System.err.println("ctx.queryString(): " + ctx.queryString());
+//			System.err.println("body: " + ctx.body());
+//			System.err.println("url: " + ctx.fullUrl());
+//			System.err.println("ctx.queryString(): " + ctx.queryString());
 			String token = ctx.queryParam("token");
 			if (Accounts.createAccount(token, ctx.body())) {
 				ctx.result("success");
@@ -85,6 +87,9 @@ public class Chat {
 				ctx.status(HttpCode.BAD_REQUEST);
 			}
 		});
+		
+		Thread gameThread = new Thread(() -> updateFunction());
+		gameThread.start();
 	}
 	
 	public static void receiveMessage(WsMessageContext ctx) {
@@ -99,9 +104,9 @@ public class Chat {
 			String token = obj.getString("token");
 			System.err.println(token);
 			AccountInfo info = Accounts.getAccountInfo(token);
+			System.err.println(info.handle + " joined game");
 			googleIDToContextMap.put(info.googleid, ctx);
 			contextToAccountInfoMap.put(ctx, info);
-			sendLocation(info);
 			break;
 		}
 			
@@ -114,7 +119,7 @@ public class Chat {
 			info.y = y;
 			
 			Accounts.updateLocation(info);
-			sendLocation(info);
+			sendLocations();
 			
 			break;
 		}
@@ -124,15 +129,33 @@ public class Chat {
 		}
 	}
 	
-	private static void sendLocation(AccountInfo info) {
-		WsContext ctx = googleIDToContextMap.get(info.googleid);
-		if (ctx.session.isOpen()) {
-			JSONObject jo = new JSONObject()
-					.put("type", MessageType.HELLO)
-					.put("x", info.x)
-					.put("y", info.y);
-			ctx.send(jo.toString());
+	private static void updateFunction() {
+		try {
+			while(true) {
+				sendLocations();
+				Thread.sleep(800);
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
 		}
+	}
+	
+	private static void sendLocations() {
+		JSONObject jo = new JSONObject()
+				.put("type", MessageType.MOVE);
+		
+		JSONArray players = new JSONArray();
+		for (AccountInfo info : contextToAccountInfoMap.values()) {
+			players.put(new JSONObject(info));
+		}
+		jo.put("players", players);
+		String tosend = jo.toString();
+//		System.err.println(tosend);
+		contextToAccountInfoMap.forEach((ctx, info) -> {
+			if (ctx.session.isOpen()) {
+				ctx.send(tosend);
+			}
+		});
 	}
 
 	// Sends a message from one user to all users, along with a list of current

@@ -1,5 +1,8 @@
 package accounts;
 
+import java.beans.JavaBean;
+
+@JavaBean
 public class AccountInfo {
 	
 	public int id;
@@ -15,4 +18,46 @@ public class AccountInfo {
 		this.x = x;
 		this.y = y;
 	}
+
+	public int getId() {
+		return id;
+	}
+
+	public void setId(int id) {
+		this.id = id;
+	}
+
+	public String getGoogleid() {
+		return googleid;
+	}
+
+	public void setGoogleid(String googleid) {
+		this.googleid = googleid;
+	}
+
+	public String getHandle() {
+		return handle;
+	}
+
+	public void setHandle(String handle) {
+		this.handle = handle;
+	}
+
+	public int getX() {
+		return x;
+	}
+
+	public void setX(int x) {
+		this.x = x;
+	}
+
+	public int getY() {
+		return y;
+	}
+
+	public void setY(int y) {
+		this.y = y;
+	}
+	
+	
 }
