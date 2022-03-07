@@ -1,0 +1,14 @@
+
+#total-accounts {
+    background-color: rgb(196, 196, 255);
+
+    &:before {
+        content: 'total accounts: ';
+    }
+}
+
+#currently-playing {
+    &:before {
+        content: 'currently online: ';
+    }
+}

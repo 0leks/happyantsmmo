@@ -44,7 +44,7 @@ function signOut() {
 function makeRequest(method, endpoint, params, body) {
     return new Promise(function (resolve, reject) {
         let xhr = new XMLHttpRequest();
-        let url = 'http://localhost:7070/' + endpoint + '?' + params;
+        let url = 'http://localhost:7070/' + endpoint + (params ? ('?' + params) : '');
         xhr.open(method, url);
         xhr.onload = function () {
             if (this.status >= 200 && this.status < 300) {
@@ -66,12 +66,20 @@ function makeRequest(method, endpoint, params, body) {
     });
 }
 
+function makeSanitizedRequest(method, endpoint, params, body) {
+    return makeRequest(method, endpoint, params, body)
+            .then(result => result.replace(/[^a-z0-9\}\{\]\[\,\":\-]/gi, ''));
+}
+
 function requestAccountInfo(token) {
-    return makeRequest("GET", 'account', 'token=' + token)
-            .then(result => result.replace(/[^a-z0-9]/gi, ''))
+    return makeSanitizedRequest("GET", 'account', 'token=' + token)
             .then(result => (result.length==0 ? null : result));
 }
 
 function registerAccount(token, handle) {
     return makeRequest("POST", 'account', 'token=' + token, handle);
+}
+
+function requestAllAccounts() {
+    return makeSanitizedRequest("GET", 'allaccounts');
 }
