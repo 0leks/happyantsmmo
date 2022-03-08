@@ -1,8 +1,8 @@
 
 
 //Establish the WebSocket connection and set up event handlers
-console.log("connecting to websocket at /play");
-let ws = new WebSocket("ws://" + location.hostname + ":7070/play");
+console.log("connecting to websocket at /coin");
+let ws = new WebSocket("ws://" + location.hostname + ":7070/coin");
 ws.onmessage = receiveMessage;
 // ws.onmessage = msg => updateChat(msg);
 ws.onclose = () => alert("WebSocket connection closed");
@@ -69,7 +69,7 @@ function receiveMessage(msg) {
     }
     else if (data.type == 'MOVE') {
         if ('players' in data) {
-            console.log(data.players.length);
+            // console.log(data.players);
             data.players.forEach(player => {
                 let group = id(player.id);
                 if (group == null) {
@@ -83,7 +83,7 @@ function receiveMessage(msg) {
                     group.appendChild(circleElem);
 
                     let handleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                    handleText.innerHTML = player.handle;
+                    handleText.innerHTML = player.id;//player.handle;
                     handleText.classList.add('handleText');
                     group.appendChild(handleText);
 

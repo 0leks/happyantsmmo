@@ -1,4 +1,4 @@
-package game;
+package games.coingame;
 
 import java.beans.JavaBean;
 

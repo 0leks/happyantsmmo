@@ -2,10 +2,11 @@ package app;
 
 import java.io.*;
 import java.net.*;
+import java.util.Optional;
 
 public class GoogleAPI {
 
-	public static String getIdFromToken(String token) {
+	public static Optional<String> getIdFromToken(String token) {
 		StringBuilder result = new StringBuilder();
 		String urlstring = "https://www.googleapis.com/oauth2/v2/userinfo";
 		try {
@@ -23,12 +24,12 @@ public class GoogleAPI {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		System.err.println(result);
+//		System.err.println(result);
 		String resultString = result.toString();
 		if (resultString.contains("\"id\":")) {
 			String id = resultString.split("\"id\":")[1].split("\"")[1];
-			return id;
+			return Optional.of(id);
 		}
-		return null;
+		return Optional.empty();
 	}
 }

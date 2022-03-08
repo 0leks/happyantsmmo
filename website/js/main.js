@@ -33,7 +33,7 @@ id("sign-out").addEventListener("click", () => {
     refreshPageStatus();
 });
 id("sign-in").addEventListener("click", () => document.location.href="/signin");
-id("play-game").addEventListener("click", () => document.location.href="/play");
+id("play-coin-game").addEventListener("click", () => document.location.href="/coin");
 
 function refreshPageStatus() {
     console.log(document.cookie);

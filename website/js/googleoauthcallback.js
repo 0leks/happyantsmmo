@@ -61,7 +61,6 @@ async function onLoad() {
 async function populateAccountInfo() {
     // send GET to localhost:7070/account
     accountInfo = await requestAccountInfo(getAccessToken());
-    console.log(accountInfo);
     if (accountInfo) {
         document.location.href="/";
     }
