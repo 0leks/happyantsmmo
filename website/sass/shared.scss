@@ -4,13 +4,17 @@
     box-sizing: border-box;
 }
 
+body {
+    background-color:rgb(163, 129, 98);
+}
+
 .hidden {
     display: none;
     visibility: hidden;
 }
 
 header {
-    background-color: aliceblue;
+    background-color:rgb(99, 202, 99);
     display: flex;
     gap: 1em;
     justify-content: center;

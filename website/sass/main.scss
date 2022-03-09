@@ -1,6 +1,5 @@
 
 #total-accounts {
-    background-color: rgb(196, 196, 255);
 
     &:before {
         content: 'total accounts: ';
@@ -11,4 +10,8 @@
     &:before {
         content: 'currently online: ';
     }
+}
+
+button {
+    padding: 1em;
 }

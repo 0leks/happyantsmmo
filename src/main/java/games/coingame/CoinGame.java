@@ -28,6 +28,10 @@ public class CoinGame {
 		gameThread = new Thread(() -> gameFunction());
 	}
 	
+	public int getNumConnections() {
+		return idToContextMap.size();
+	}
+	
 	public void start() {
 		updateThread.start();
 		gameThread.start();
@@ -63,7 +67,13 @@ public class CoinGame {
 		changedLocations.add(info.id);
 		sendAll = true;
 		System.err.println(info.handle + " joined game");
+		
+		JSONObject obj = new JSONObject(playerInfo);
+		obj.put("type", MessageType.HELLO);
+		ctx.send(obj.toString());
 	}
+	
+	
 	
 	public void closedConnection(WsCloseContext ctx) {
 		AccountInfo info = contextToAccountInfoMap.get(ctx);
@@ -135,8 +145,8 @@ public class CoinGame {
 					DB.coinsDB.updateLocation(player);
 				}
 				
-				if (System.currentTimeMillis() - timeToNextCoin <= 0) {
-					Coin newcoin = Coin.makeCoin((int)(Math.random()*500), (int)(Math.random()*500));
+				if (System.currentTimeMillis() - timeToNextCoin >= 0) {
+					Coin newcoin = Coin.makeCoin((int)(Math.random()*2000) - 1000, (int)(Math.random()*2000) - 1000);
 					coinstosend.add(newcoin);
 					coins.add(newcoin);
 					timeToNextCoin = System.currentTimeMillis() + 5000;
@@ -171,8 +181,10 @@ public class CoinGame {
 		while (!coinstosend.isEmpty()) {
 			coinsArray.put(new JSONObject(coinstosend.remove()));
 		}
-		if (!coinsArray.isEmpty())
+		if (!coinsArray.isEmpty()) {
 			jo.put("coins", coinsArray);
+			System.err.println("sending " + coinsArray.length() + " coins");
+		}
 		
 		sendAll = false;
 		String tosend = jo.toString();

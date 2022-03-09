@@ -36,7 +36,7 @@ public class Driver {
 			
 			JSONObject jo = new JSONObject();
 			jo.put("total-accounts", accounts.size());
-			jo.put("currently-playing", 0);
+			jo.put("currently-playing", coingame.getNumConnections());
 			JSONArray accountArray = new JSONArray();
 			accounts.forEach(account -> accountArray.put(account.handle));
 			jo.put("account-list", accountArray);
