@@ -1,0 +1,23 @@
+
+players are ants, run around collecting pollen (replace coins with pollen)
+
+player can hold a limited number of pollen
+with enough pollen, can place a cache where can store pollen and add it to account
+
+(keep track of pollen held by player separately from pollen stored in cache)
+
+can make more caches but costs much more pollen
+
+each player can only see their own caches
+
+next minigame will be all about converting pollen to honey
+
+then maybe honey to wax???
+
+players can level up their 
+- holding capacity
+- pollen colleciton efficiency
+- pollen to honey conversion
+
+
+oops its not bees, perhaps some other material instead of pollen
