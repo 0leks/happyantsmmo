@@ -231,13 +231,6 @@ function startup() {
     makeSquareMesh(0, 0);
     makeCircleMesh();
 
-    playerPositions = {
-        999: [0, 0],
-        998: [0, 110],
-        997: [0, 220],
-        996: [0, 305],
-    };
-
     currentAngle = 0.0;
 
     animateScene();
@@ -300,7 +293,7 @@ function drawMeshes(mesh, positions, scale) {
 
 function animateScene() {
     gl.viewport(0, 0, glCanvas.width, glCanvas.height);
-    gl.clearColor(0.8, 0.9, 1.0, 1.0);
+    gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     let radians = currentAngle * Math.PI / 180.0;
@@ -315,12 +308,26 @@ function animateScene() {
 
     gl.uniform2fv(uScalingFactor, currentScale);
     gl.uniform2fv(uRotationVector, currentRotation);
-    gl.uniform4fv(uGlobalColor, [0.1, 0.7, 0.2, 1.0]);
 
     uCameraTranslate = gl.getUniformLocation(shaderProgram, "uCameraTranslate");
     gl.uniform2fv(uCameraTranslate, getMyPosition());
 
+    gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
+    drawMeshes(squareMesh, {0: [0,0]}, 2000);
+    
+    gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
+    drawMeshes(squareMesh, {0: [0,0]}, 1600);
+
+    gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
+    drawMeshes(squareMesh, {0: [0,0]}, 800);
+
+    gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
+    drawMeshes(squareMesh, {0: [0,0]}, 200);
+    
+
+    gl.uniform4fv(uGlobalColor, [0.1, 0.7, 0.2, 1.0]);
     drawMeshes(squareMesh, playerPositions, PLAYER_SIZE);
+    gl.uniform4fv(uGlobalColor, [.9, 0.6, 0.2, 1.0]);
     drawMeshes(circleMesh, coinPositions, COIN_SIZE);
 
     window.requestAnimationFrame(function (currentTime) {

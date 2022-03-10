@@ -139,6 +139,8 @@ public class CoinGame {
 				player.x += delta.x;
 				player.y += delta.y;
 			}
+			player.x = Math.max(Math.min(player.x, 1000), -1000);
+			player.y = Math.max(Math.min(player.y, 1000), -1000);
 			changedLocations.add(player.id);
 			DB.coinsDB.updateLocation(player);
 		}
