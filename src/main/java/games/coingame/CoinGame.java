@@ -171,7 +171,10 @@ public class CoinGame {
 				
 				if (System.currentTimeMillis() - timeToNextCoin >= 0) {
 					addNewCoin();
-					timeToNextCoin = System.currentTimeMillis() + 5000;
+					timeToNextCoin = System.currentTimeMillis() + 500;
+					if (!idToContextMap.isEmpty()) {
+						timeToNextCoin += 20000/idToContextMap.size();
+					}
 				}
 //				System.err.println(System.currentTimeMillis()%10000);
 				Thread.sleep(400);
