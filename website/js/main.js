@@ -65,7 +65,9 @@ function refreshPageStatus() {
 
         id("total-accounts").innerHTML = data['total-accounts'];
         id("currently-playing").innerHTML = data['currently-playing'];
-        id("account-list").innerHTML = data['account-list'].map(account => "<li>" + account + "</li>").join("");
+        id("account-list").innerHTML = data['account-list'].map(account => {
+            return "<li>" + account.handle + (('numcoins' in account) ? " " + account.numcoins + " coins" : "") + "</li>";
+        }).join("");
     });
     
 }

@@ -6,11 +6,13 @@ import java.beans.JavaBean;
 public class PlayerInfo {
 	
 	public int id;
+	public int numcoins;
 	public int x;
 	public int y;
 
-	public PlayerInfo(int id, int x, int y) {
+	public PlayerInfo(int id, int numcoins, int x, int y) {
 		this.id = id;
+		this.numcoins = numcoins;
 		this.x = x;
 		this.y = y;
 	}
@@ -21,6 +23,15 @@ public class PlayerInfo {
 	public void setId(int id) {
 		this.id = id;
 	}
+	
+	public int getNumcoins() {
+		return numcoins;
+	}
+
+	public void setNumcoins(int numcoins) {
+		this.numcoins = numcoins;
+	}
+
 	public int getX() {
 		return x;
 	}

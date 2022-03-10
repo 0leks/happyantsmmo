@@ -38,7 +38,17 @@ public class Driver {
 			jo.put("total-accounts", accounts.size());
 			jo.put("currently-playing", coingame.getNumConnections());
 			JSONArray accountArray = new JSONArray();
-			accounts.forEach(account -> accountArray.put(account.handle));
+			accounts.forEach(account -> {
+				System.err.println(account.handle);
+				JSONObject obj = new JSONObject();
+				obj.put("handle", account.handle);
+				PlayerInfo info = DB.coinsDB.getPlayerInfo(account.id);
+				if (info != null) {
+					obj.put("numcoins", info.numcoins);
+				}
+				accountArray.put(obj);
+			});
+			System.err.println(accountArray.toString());
 			jo.put("account-list", accountArray);
 			ctx.result(jo.toString());
 		});
@@ -46,15 +56,16 @@ public class Driver {
 			String token = ctx.queryParam("token");
 			System.err.println(token);
 			AccountInfo info = Accounts.getAccountInfo(token);
-			System.err.println(info.googleid);
 			if (info == null) {
 				ctx.status(HttpCode.IM_A_TEAPOT);
 			}
 			else {
+				System.err.println(info.googleid);
 				if (info.handle == null) {
 					ctx.result("");
 				}
 				else {
+					
 					ctx.result(info.handle);
 				}
 			}

@@ -39,7 +39,7 @@ public class CoinGame {
 	
 	private void newConnection(WsMessageContext ctx, String token) {
 		AccountInfo info = Accounts.getAccountInfo(token);
-		if (info == null) {
+		if (info == null || info.handle == null) {
 			ctx.session.close();
 			return;
 		}
@@ -121,37 +121,57 @@ public class CoinGame {
 	private static ConcurrentLinkedQueue<Coin> coinstosend = new ConcurrentLinkedQueue<>();
 	
 	private static final int PLAYER_SPEED = 50;
+	
+	private static void movePlayers() {
+		for (Entry<PlayerInfo, Vec2> entry : playerTargetLocations.entrySet()) {
+			PlayerInfo player = entry.getKey();
+			Vec2 target = entry.getValue();
+			
+			Vec2 delta = new Vec2(target.x - player.x, target.y - player.y);
+			double distanceLeft = delta.magnitude();
+			if (distanceLeft < PLAYER_SPEED) {
+				player.x = target.x;
+				player.y = target.y;
+				playerTargetLocations.remove(player);
+			}
+			else {
+				delta.scale(PLAYER_SPEED/distanceLeft);
+				player.x += delta.x;
+				player.y += delta.y;
+			}
+			changedLocations.add(player.id);
+			DB.coinsDB.updateLocation(player);
+		}
+	}
+	
+	private static void checkCoinCollect() {
+		for (PlayerInfo info : contextToPlayerInfoMap.values()) {
+			
+			List<Coin> coins = DB.coinsDB.getCoinsInRange(info.x - 60, info.y - 60, info.x + 60, info.y + 60);
+//			System.err.println("close to " + coins.size() + " coins");
+			for(Coin c : coins) {
+				DB.coinsDB.collected(info.id, c.id);
+				coinstosend.add(c);
+			}
+		}
+	}
+	
+	private static void addNewCoin() {
+		DB.coinsDB.insertCoin((int)(Math.random()*2000) - 1000, (int)(Math.random()*2000) - 1000);
+	}
+	
 	private static void gameFunction() {
 		try {
 			long timeToNextCoin = System.currentTimeMillis();
 			while(true) {
-				for (Entry<PlayerInfo, Vec2> entry : playerTargetLocations.entrySet()) {
-					PlayerInfo player = entry.getKey();
-					Vec2 target = entry.getValue();
-					
-					Vec2 delta = new Vec2(target.x - player.x, target.y - player.y);
-					double distanceLeft = delta.magnitude();
-					if (distanceLeft < PLAYER_SPEED) {
-						player.x = target.x;
-						player.y = target.y;
-						playerTargetLocations.remove(player);
-					}
-					else {
-						delta.scale(PLAYER_SPEED/distanceLeft);
-						player.x += delta.x;
-						player.y += delta.y;
-					}
-					changedLocations.add(player.id);
-					DB.coinsDB.updateLocation(player);
-				}
+				movePlayers();
+				checkCoinCollect();
 				
 				if (System.currentTimeMillis() - timeToNextCoin >= 0) {
-					Coin newcoin = Coin.makeCoin((int)(Math.random()*2000) - 1000, (int)(Math.random()*2000) - 1000);
-					coinstosend.add(newcoin);
-					coins.add(newcoin);
+					addNewCoin();
 					timeToNextCoin = System.currentTimeMillis() + 5000;
 				}
-				System.err.println(System.currentTimeMillis()%10000);
+//				System.err.println(System.currentTimeMillis()%10000);
 				Thread.sleep(400);
 			}
 		} catch (InterruptedException e) {
@@ -178,12 +198,15 @@ public class CoinGame {
 			jo.put("players", players);
 
 		JSONArray coinsArray = new JSONArray();
-		while (!coinstosend.isEmpty()) {
-			coinsArray.put(new JSONObject(coinstosend.remove()));
+		for(Coin coin : DB.coinsDB.getCoins()) {
+			coinsArray.put(new JSONObject(coin));
+		}
+		while(!coinstosend.isEmpty()) {
+			coinsArray.put(new JSONObject(coinstosend.remove()).put("delete", true));
 		}
 		if (!coinsArray.isEmpty()) {
 			jo.put("coins", coinsArray);
-			System.err.println("sending " + coinsArray.length() + " coins");
+//			System.err.println("sending " + coinsArray.length() + " coins");
 		}
 		
 		sendAll = false;

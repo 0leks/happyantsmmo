@@ -92,31 +92,16 @@ function receiveMessage(msg) {
 
         if ('coins' in data) {
             data.coins.forEach(coin => {
-                console.log(coin);
-                coinPositions[coin.id] = [coin.x, coin.y];
-                // let group = id(coin.id);
-                // if (group == null) {
-                //     group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                //     group.setAttribute('id', 'coin' + coin.id);
-                //     group.classList.add('coin');
-
-                //     let circleElem = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                //     circleElem.setAttribute('r', 10);
-                //     group.appendChild(circleElem);
-
-                //     let handleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                //     handleText.innerHTML = '1';
-                //     group.appendChild(handleText);
-
-                //     id("gamesvg").appendChild(group);
-                // }
-
-                // group.setAttribute('transform', 'translate(' + coin.x + ',' + coin.y + ')');
+                // console.log(coin);
+                if ('delete' in coin) {
+                    delete coinPositions[coin.id];
+                }
+                else {
+                    coinPositions[coin.id] = [coin.x, coin.y];
+                }
             });
         }
     }
-    // id("chat").insertAdjacentHTML("afterbegin", data.userMessage);
-    // id("userlist").innerHTML = data.userlist.map(user => "<li>" + user + "</li>").join("");
 }
 
 let gl = null;

@@ -1,6 +1,11 @@
 package database;
 
 import java.sql.*;
+import java.util.Optional;
+
+import org.json.JSONObject;
+
+import accounts.AccountInfo;
 
 public class DB {
 	private static final String DATA_DIR = "./data/";
@@ -29,6 +34,5 @@ public class DB {
 
 		accountsDB.createAccountsTable();
 		coinsDB.createCoinGameTables();
-		
 	}
 }
