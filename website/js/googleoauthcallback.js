@@ -52,16 +52,22 @@ async function onLoad() {
     setCookie('signedin', 'googletoken', expiresIn);
     setCookie('googletoken', accessToken, expiresIn);
 
-    console.log(getCookie('signedin'));
-    console.log(getCookie('googletoken'));
+    console.log('signedin = ' + getCookie('signedin'));
+    console.log('token = ' + getCookie('googletoken'));
 
     populateAccountInfo();
+    // TODO show server error here
 }
 
 async function populateAccountInfo() {
     // send GET to localhost:7070/account
-    accountInfo = await requestAccountInfo(getAccessToken());
+    console.log('awaiting account info');
+    let token = getAccessToken();
+    console.log('token = ' + token);
+    accountInfo = await requestAccountInfo(token);
+    console.log('received account info ' + accountInfo);
     if (accountInfo) {
+        console.log('redirecting to home');
         document.location.href="/";
     }
     else {
@@ -72,7 +78,7 @@ async function populateAccountInfo() {
 async function submitForm() {
     console.log("submitting form")
     let result = await registerAccount(getAccessToken(), id("handle-input").value);
-    console.log(result);
+    console.log("result of registerAccount: " + result);
 
     populateAccountInfo();
 }

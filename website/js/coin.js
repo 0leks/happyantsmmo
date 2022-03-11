@@ -1,14 +1,18 @@
 
-
 console.log("connecting to websocket at /coin");
 let ws = new WebSocket("ws://" + location.hostname + ":7070/coin");
 ws.onmessage = receiveMessage;
-ws.onclose = () => alert("WebSocket connection closed");
+ws.onclose = disconnected;
 ws.onopen = sendHello;
 
 
 const accessToken = getAccessToken();
 if (accessToken == null) {
+    document.location.href = "/";
+}
+
+function disconnected() {
+    alert("WebSocket connection closed");
     document.location.href = "/";
 }
 
@@ -22,75 +26,83 @@ function sendHello() {
     ws.send(tosend);
 }
 
+function sendStopGame() {
+    let jsonData = {
+        'type': 'STOP'
+    };
+    let tosend = JSON.stringify(jsonData);
+    console.log('sending ' + tosend);
+    ws.send(tosend);
+}
+
 function sendMove(x, y) {
     let data = {
         'type': 'MOVE',
         'x': x,
         'y': y
     }
-    console.log(data);
+    // console.log(data);
     ws.send(JSON.stringify(data));
 }
 
 document.addEventListener('click', logMouseEvent);
 function logMouseEvent(e) {
-    console.log(e);
+    // console.log(e);
     let mypos = getMyPosition();
-    console.log('mypos:' + mypos);
-    sendMove(mypos[0] + (e.x - glCanvas.width / 2), mypos[1] - (e.y - glCanvas.height / 2));
+    let targetPos = [mypos[0] + (e.x - glCanvas.width / 2), mypos[1] - (e.y - glCanvas.height / 2)];
+    // console.log('mypos:' + mypos);
+    playerTargetPositions[myID] = {
+        'from': new Vector(mypos[0], mypos[1], 0),
+        'to': new Vector(targetPos[0], targetPos[1], 0),
+        'previousTime': previousTime
+    };
+    sendMove(targetPos[0], targetPos[1]);
 }
 
 document.addEventListener('keydown', logKey);
 function logKey(e) {
-    console.log(e.code);
+    console.log(e);
+    if (e.code == 'Escape') {
+        sendStopGame();
+    }
 }
 
 var myID;
+var lastTimestamp;
 function receiveMessage(msg) {
     let data = JSON.parse(msg.data);
+
+    let timestamp = Date.now();
+    let status = `${timestamp % 10000} delta ${timestamp - lastTimestamp}: ${data.type}: `;
+    lastTimestamp = timestamp;
 
     if (data.type == 'HELLO') {
         console.log(data);
         myID = data.id;
+        status += myID;
+    }
+    else if (data.type == 'STOP') {
+        console.log(data);
+        alert(data.message);
     }
     else if (data.type == 'MOVE') {
         if ('players' in data) {
+            status += `${data.players.length} players, `;
             // console.log(data.players);
             data.players.forEach(player => {
-
                 playerPositions[player.id] = [player.x, player.y];
+                playerInfos[player.id] = player;
 
-                // let group = id(player.id);
-                // if (group == null) {
-                //     let radius = 50;
-                //     group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-                //     group.setAttribute('id', player.id);
-                //     group.classList.add('player');
-
-                //     let circleElem = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                //     circleElem.setAttribute('r', radius);
-                //     group.appendChild(circleElem);
-
-                //     let handleText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                //     handleText.innerHTML = player.id;//player.handle;
-                //     handleText.classList.add('handleText');
-                //     group.appendChild(handleText);
-
-                //     // let image = document.createElementNS('http://www.w3.org/2000/svg', 'image');
-                //     // image.setAttribute('href', 'https://picsum.photos/seed/' + player.id + '/' + (radius/2));
-                //     // image.setAttribute('transform', 'translate(' + -radius/4 + ',' + -radius*3/4 + ')');
-                //     // group.appendChild(image);
-
-                //     id("gamesvg").appendChild(group);
-                // }
-
-                // group.setAttribute('transform', 'translate(' + player.x + ',' + player.y + ')');
-                // console.log('handling player info');
-                // console.log(player);
+                if (player.id == myID && playerTargetPositions[myID]) {
+                    playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
+                    playerTargetPositions[myID].previousTime = previousTime;
+                }
             });
+
         }
 
         if ('coins' in data) {
+            status += `${data.coins.length} coins, `;
             data.coins.forEach(coin => {
                 // console.log(coin);
                 if ('delete' in coin) {
@@ -102,10 +114,13 @@ function receiveMessage(msg) {
             });
         }
     }
+    console.log(status);
 }
 
 let gl = null;
 let glCanvas = null;
+let textContext = null;
+let textCanvas = null;
 
 // Aspect ratio and coordinate system
 // details
@@ -121,6 +136,8 @@ let circleMesh = {};
 
 let PLAYER_SIZE = 60;
 let playerPositions = {};
+let playerTargetPositions = {};
+let playerInfos = {};
 let COIN_SIZE = 20;
 let coinPositions = {};
 
@@ -141,7 +158,26 @@ window.addEventListener("load", startup, false);
 
 function getMyPosition() {
     if (myID in playerPositions) {
-        return playerPositions[myID];
+        let delta2 = new Vector(0, 0);
+        if (myID in playerTargetPositions) {
+            let current = new Vector(playerTargetPositions[myID].from.x, playerTargetPositions[myID].from.y, 0);
+            let target = new Vector(playerTargetPositions[myID].to.x, playerTargetPositions[myID].to.y, 0);
+
+            let deltaTime = previousTime - playerTargetPositions[myID].previousTime;
+            let playerSpeed = 100;
+            let secondsElapsed = deltaTime / 1000;
+
+            let deltaVector = target.subtract(current);
+                delta2 = deltaVector.unit().multiply(secondsElapsed * playerSpeed);
+                if (delta2.length() > deltaVector.length()) {
+                    delta2 = deltaVector;
+                    delete playerTargetPositions[myID];
+                }
+                let estimatedPos = current.add(delta2);
+                playerPositions[myID][0] = estimatedPos.x;
+                playerPositions[myID][1] = estimatedPos.y;
+        }
+        return [playerPositions[myID][0], playerPositions[myID][1]];
     }
     return [0, 0];
 }
@@ -174,7 +210,7 @@ function makeSquareMesh() {
 
 function makeCircleMesh() {
     let size = 1;
-    let numSegments = 8;
+    let numSegments = 16;
     let vertices = [0, 0];
     let indices = [];
     for (let i = 0; i < numSegments; i++) {
@@ -232,6 +268,13 @@ function startup() {
     makeCircleMesh();
 
     currentAngle = 0.0;
+    
+    textCanvas = id("textCanvas");
+    textCanvas.width = document.body.clientWidth;
+    textCanvas.height = document.body.clientHeight;
+    textContext = textCanvas.getContext("2d");
+    textContext.textBaseline = "middle";
+    textContext.textAlign = "center";
 
     animateScene();
 }
@@ -296,20 +339,17 @@ function animateScene() {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    let radians = currentAngle * Math.PI / 180.0;
-    currentRotation[0] = Math.sin(radians);
-    currentRotation[1] = Math.cos(radians);
 
     gl.useProgram(shaderProgram);
 
+    uRotationVector = gl.getUniformLocation(shaderProgram, "uRotationVector");
     uScalingFactor = gl.getUniformLocation(shaderProgram, "uScalingFactor");
     uGlobalColor = gl.getUniformLocation(shaderProgram, "uGlobalColor");
-    uRotationVector = gl.getUniformLocation(shaderProgram, "uRotationVector");
 
     gl.uniform2fv(uScalingFactor, currentScale);
-    gl.uniform2fv(uRotationVector, currentRotation);
 
     uCameraTranslate = gl.getUniformLocation(shaderProgram, "uCameraTranslate");
+
     gl.uniform2fv(uCameraTranslate, getMyPosition());
 
     gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
@@ -323,12 +363,41 @@ function animateScene() {
 
     gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
     drawMeshes(squareMesh, {0: [0,0]}, 200);
+
     
+    
+    let radians = currentAngle * Math.PI / 180.0;
+    currentRotation[0] = Math.sin(radians);
+    currentRotation[1] = Math.cos(radians);
+    gl.uniform2fv(uRotationVector, currentRotation);
 
     gl.uniform4fv(uGlobalColor, [0.1, 0.7, 0.2, 1.0]);
     drawMeshes(squareMesh, playerPositions, PLAYER_SIZE);
     gl.uniform4fv(uGlobalColor, [.9, 0.6, 0.2, 1.0]);
     drawMeshes(circleMesh, coinPositions, COIN_SIZE);
+    
+    gl.uniform2fv(uRotationVector, [1, 0]);
+
+    textContext.clearRect(0, 0, textContext.canvas.width, textContext.canvas.height);
+    textContext.strokeRect(0, 0, textContext.canvas.width, textContext.canvas.height);
+
+    textContext.save();
+    let mypos = getMyPosition();
+    textContext.translate(-mypos[0] + textContext.canvas.width/2, mypos[1] + textContext.canvas.height/2);
+
+    textContext.font = '16px serif';
+    for (const [id, coinPos] of Object.entries(coinPositions)) {
+        textContext.fillText('1', coinPos[0], -coinPos[1]);
+    }
+    textContext.font = '24px serif';
+    for (const [id, playerinfo] of Object.entries(playerInfos)) {
+        textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10);
+        textContext.fillText('' + playerinfo.numcoins, playerPositions[id][0], -playerPositions[id][1] + 15);
+    }
+    textContext.restore();
+
+
+
 
     window.requestAnimationFrame(function (currentTime) {
         //   let deltaAngle = ((currentTime - previousTime) / 1000.0) * degreesPerSecond;

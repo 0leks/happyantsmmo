@@ -8,24 +8,50 @@ import org.json.*;
 
 import accounts.*;
 import app.MessageType;
-import database.DB;
-import games.math.Vec2;
+import games.math.*;
 import io.javalin.websocket.*;
 
-public class CoinGame {
+import static app.Util.currentTime;
 
-	private static Map<Integer, WsContext> idToContextMap = new ConcurrentHashMap<>();
-	private static Map<WsContext, AccountInfo> contextToAccountInfoMap = new ConcurrentHashMap<>();
-	private static Map<WsContext, PlayerInfo> contextToPlayerInfoMap = new ConcurrentHashMap<>();
+public class CoinGame {
 	
-	private static Map<PlayerInfo, Vec2> playerTargetLocations = new ConcurrentHashMap<>();
+	private static final int TICK_TIME = 333;
+	private static final int UPDATE_TIME = 333;
+	private static final int PLAYER_SPEED = 100;
+
+	/**
+	 * This is the main map that gets iterated to send updates to all contexts
+	 */
+	private Map<WsContext, PlayerInfo> contextToPlayerInfoMap = new ConcurrentHashMap<>();
+
+	private Map<Integer, WsContext> idToContextMap = new HashMap<>();
+	private Map<WsContext, AccountInfo> contextToAccountInfoMap = new HashMap<>();
+	private Map<PlayerInfo, Vec3> playerTargetLocations = new HashMap<>();
+
+	/**
+	 * if null, need to share all coins
+	 * if has a hashmap, then cointains list of coin ids that have been shared
+	 */
+	private Map<WsContext, Set<Integer>> contextToCoinsShared = new HashMap<>();	
 	
+	private ConcurrentLinkedQueue<Coin> deletedCoins = new ConcurrentLinkedQueue<>();
+
+	
+	private Set<Integer> changedLocations = new HashSet<>();
+	private boolean sendAllPlayerLocations;
+	
+	private CoinGameState state;
 	
 	private Thread updateThread;
 	private Thread gameThread;
+	private Thread databaseSaver;
+	private volatile boolean stopGame;
+	
 	public CoinGame() {
+		state = new CoinGameState(false);
 		updateThread = new Thread(() -> updateFunction());
 		gameThread = new Thread(() -> gameFunction());
+		databaseSaver = new Thread(() -> databaseSaveFunction());
 	}
 	
 	public int getNumConnections() {
@@ -35,11 +61,47 @@ public class CoinGame {
 	public void start() {
 		updateThread.start();
 		gameThread.start();
+		databaseSaver.start();
+	}
+	
+	private void stopGame(WsMessageContext ctx) {
+		// only admin account can stop the game
+		System.out.println(contextToPlayerInfoMap.get(ctx) + " tried to stop game");
+		if (contextToPlayerInfoMap.get(ctx).id != 1) {
+			return;
+		}
+		
+		JSONObject message = new JSONObject();
+		message.put("type", MessageType.STOP);
+		message.put("message", "Server is closing for maintenance in 5 seconds");
+		String tosend = message.toString();
+		for (WsContext playerContext : contextToPlayerInfoMap.keySet()) {
+			playerContext.send(tosend);
+		}
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e1) {
+			e1.printStackTrace();
+		}
+
+		for (WsContext playerContext : contextToPlayerInfoMap.keySet()) {
+			playerContext.session.close();
+		}
+		
+		stopGame = true;
+		try {
+			updateThread.join(UPDATE_TIME*4);
+			gameThread.join(UPDATE_TIME*4);
+			databaseSaver.join(UPDATE_TIME*4);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		state.persist();
 	}
 	
 	private void newConnection(WsMessageContext ctx, String token) {
 		AccountInfo info = Accounts.getAccountInfo(token);
-		if (info == null || info.handle == null) {
+		if (info == null || info.handle == null || stopGame) {
 			ctx.session.close();
 			return;
 		}
@@ -50,22 +112,21 @@ public class CoinGame {
 			ctx.session.close();
 		}
 		
-		// get PlayerInfo
-		PlayerInfo playerInfo = DB.coinsDB.getPlayerInfo(info.id);
+		PlayerInfo playerInfo = state.getPlayerInfo(info.id);
 		if (playerInfo == null) {
-			// create new player info
-			playerInfo = DB.coinsDB.insertPlayerInfo(info.id);
+			playerInfo = state.createNewPlayer(info.id);
 			if (playerInfo == null) {
 				// failed to create new player info.
 				ctx.session.close();
 			}
 		}
 		
+		contextToCoinsShared.put(ctx, new HashSet<>());
 		idToContextMap.put(info.id, ctx);
 		contextToAccountInfoMap.put(ctx, info);
 		contextToPlayerInfoMap.put(ctx, playerInfo);
 		changedLocations.add(info.id);
-		sendAll = true;
+		sendAllPlayerLocations = true;
 		System.err.println(info.handle + " joined game");
 		
 		JSONObject obj = new JSONObject(playerInfo);
@@ -84,7 +145,8 @@ public class CoinGame {
 	}
 	
 	public void receiveMove(WsMessageContext ctx, int x, int y) {
-		playerTargetLocations.put(contextToPlayerInfoMap.get(ctx), new Vec2(x, y));
+		movePlayer(contextToPlayerInfoMap.get(ctx));
+		playerTargetLocations.put(contextToPlayerInfoMap.get(ctx), new Vec3(x, y, currentTime()));
 	}
 	
 	public void receiveMessage(WsMessageContext ctx) {
@@ -100,101 +162,124 @@ public class CoinGame {
 		case MOVE:
 			receiveMove(ctx, obj.getInt("x"), obj.getInt("y"));
 			break;
+
+		case STOP:
+			stopGame(ctx);
+			break;
 			
 		default:
 			System.err.println("UNKNOWN MESSAGE TYPE RECEIVED");
 		}
 	}
 	
-	private static void updateFunction() {
-		try {
-			while(true) {
-				sendLocations();
-				Thread.sleep(200);
-			}
-		} catch (InterruptedException e) {
-			e.printStackTrace();
+	private void movePlayer(PlayerInfo player) {
+		if (!playerTargetLocations.containsKey(player)) {
+			return;
+		}
+		
+		Vec2 target = playerTargetLocations.get(player).xy();
+		
+		Vec2 delta = new Vec2(target.x - player.x, target.y - player.y);
+		double distanceLeft = delta.magnitude();
+		
+		int elapsedTime = currentTime() - playerTargetLocations.get(player).z;
+		playerTargetLocations.get(player).z = currentTime();
+		double distanceTravelled = elapsedTime * PLAYER_SPEED / 1000.0;
+		if (distanceTravelled >= distanceLeft) {
+			player.x = target.x;
+			player.y = target.y;
+			playerTargetLocations.remove(player);
+		}
+		else {
+			delta.scale(distanceTravelled/distanceLeft);
+			player.x += delta.x;
+			player.y += delta.y;
+		}
+		player.x = Math.max(Math.min(player.x, 1000), -1000);
+		player.y = Math.max(Math.min(player.y, 1000), -1000);
+		changedLocations.add(player.id);
+		state.updatePlayerLocation(player);
+	}
+	
+	private void movePlayers() {
+		for (PlayerInfo info : contextToPlayerInfoMap.values()) {
+			movePlayer(info);
 		}
 	}
 	
-	private static Set<Coin> coins = new HashSet<>();
-	private static ConcurrentLinkedQueue<Coin> coinstosend = new ConcurrentLinkedQueue<>();
-	
-	private static final int PLAYER_SPEED = 50;
-	
-	private static void movePlayers() {
-		for (Entry<PlayerInfo, Vec2> entry : playerTargetLocations.entrySet()) {
-			PlayerInfo player = entry.getKey();
-			Vec2 target = entry.getValue();
-			
-			Vec2 delta = new Vec2(target.x - player.x, target.y - player.y);
-			double distanceLeft = delta.magnitude();
-			if (distanceLeft < PLAYER_SPEED) {
-				player.x = target.x;
-				player.y = target.y;
-				playerTargetLocations.remove(player);
-			}
-			else {
-				delta.scale(PLAYER_SPEED/distanceLeft);
-				player.x += delta.x;
-				player.y += delta.y;
-			}
-			player.x = Math.max(Math.min(player.x, 1000), -1000);
-			player.y = Math.max(Math.min(player.y, 1000), -1000);
-			changedLocations.add(player.id);
-			DB.coinsDB.updateLocation(player);
-		}
-	}
-	
-	private static void checkCoinCollect() {
+	private void checkCoinCollect() {
 		for (PlayerInfo info : contextToPlayerInfoMap.values()) {
 			
-			List<Coin> coins = DB.coinsDB.getCoinsInRange(info.x - 60, info.y - 60, info.x + 60, info.y + 60);
+			List<Coin> coins = state.getCoinsInRange(
+					new Vec2(info.x - 30, info.y - 30), 
+					new Vec2(info.x + 30, info.y + 30));
 //			System.err.println("close to " + coins.size() + " coins");
 			for(Coin c : coins) {
-				DB.coinsDB.collected(info.id, c.id);
-				coinstosend.add(c);
+				state.playerCollectsCoin(info, c);
+				deletedCoins.add(c);
 			}
 		}
 	}
 	
-	private static void addNewCoin() {
-		DB.coinsDB.insertCoin((int)(Math.random()*2000) - 1000, (int)(Math.random()*2000) - 1000);
-	}
-	
-	private static void gameFunction() {
+	private void gameFunction() {
 		try {
-			long timeToNextCoin = System.currentTimeMillis();
-			while(true) {
+			long timeToNextCoin = currentTime();
+			while(!stopGame) {
+				long starttime = currentTime();
 				movePlayers();
 				checkCoinCollect();
 				
-				if (System.currentTimeMillis() - timeToNextCoin >= 0) {
-					addNewCoin();
-					timeToNextCoin = System.currentTimeMillis() + 500;
-					if (!idToContextMap.isEmpty()) {
-						timeToNextCoin += 20000/idToContextMap.size();
-					}
+				if (currentTime() - timeToNextCoin >= 0) {
+					state.addNewCoin((int)(Math.random()*2000) - 1000, (int)(Math.random()*2000) - 1000);
+					timeToNextCoin = currentTime() + TICK_TIME;
+					timeToNextCoin += Math.max(0, 20000 - TICK_TIME*contextToPlayerInfoMap.size());
 				}
-//				System.err.println(System.currentTimeMillis()%10000);
-				Thread.sleep(400);
+//				System.out.println("game tick: " + currentTime()%10000);
+				long deltatime = currentTime() - starttime;
+				long timetosleep = TICK_TIME - deltatime;
+				if (timetosleep > 0) {
+					Thread.sleep(timetosleep);
+				}
 			}
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		System.err.println("finished gameFunction");
+	}
+
+	private void updateFunction() {
+//		long lastSent = 0;
+		try {
+			while(!stopGame) {
+				long starttime = currentTime();
+				sendLocations();
+				long endtime = currentTime();
+
+//				long timestamp = currentTime();
+//				long timeSinceLastSent = timestamp - lastSent;
+//				String status = String.format("%d delta %d", timestamp%10000, timeSinceLastSent);
+//				System.out.println(status);
+				
+				long timetosleep = UPDATE_TIME - (endtime - starttime);
+				if(timetosleep >= 50) {
+					Thread.sleep(timetosleep);
+				}
+//				lastSent = timestamp;
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		System.err.println("finished updateFunction");
 	}
 	
-	
-	private static Set<Integer> changedLocations = new HashSet<>();
-	private static boolean sendAll;
-	private static void sendLocations() {
+	private void sendLocations() {
 		// TODO add an output queue intermediate here?
 		JSONObject jo = new JSONObject();
 		jo.put("type", MessageType.MOVE);
 		
 		JSONArray players = new JSONArray();
 		for (PlayerInfo info : contextToPlayerInfoMap.values()) {
-			if (changedLocations.contains(info.id) || sendAll) {
+			if (changedLocations.contains(info.id) || sendAllPlayerLocations) {
 				changedLocations.remove(info.id);
 				players.put(new JSONObject(info));
 			}
@@ -202,24 +287,46 @@ public class CoinGame {
 		if (!players.isEmpty())
 			jo.put("players", players);
 
-		JSONArray coinsArray = new JSONArray();
-		for(Coin coin : DB.coinsDB.getCoins()) {
-			coinsArray.put(new JSONObject(coin));
-		}
-		while(!coinstosend.isEmpty()) {
-			coinsArray.put(new JSONObject(coinstosend.remove()).put("delete", true));
-		}
-		if (!coinsArray.isEmpty()) {
-			jo.put("coins", coinsArray);
-//			System.err.println("sending " + coinsArray.length() + " coins");
-		}
-		
-		sendAll = false;
-		String tosend = jo.toString();
+		sendAllPlayerLocations = false;
 		for (WsContext ctx : contextToPlayerInfoMap.keySet()) {
 			if (ctx.session.isOpen()) {
+				
+				JSONArray coinsArray = new JSONArray();
+				Set<Integer> alreadySharedCoins = contextToCoinsShared.get(ctx);
+				for(Coin coin : state.getCoins()) {
+					if (!alreadySharedCoins.contains(coin.id)) {
+						coinsArray.put(new JSONObject(coin));
+						alreadySharedCoins.add(coin.id);
+					}
+				}
+				
+				// always share all deleted coins
+				while(!deletedCoins.isEmpty()) {
+					coinsArray.put(new JSONObject(deletedCoins.remove()).put("delete", true));
+				}
+				if (!coinsArray.isEmpty()) {
+					jo.put("coins", coinsArray);
+//					System.err.println("sending " + coinsArray.length() + " coins");
+				}
+
+				String tosend = jo.toString();
 				ctx.send(tosend);
 			}
 		}
+	}
+	
+	private void databaseSaveFunction() {
+		try {
+			while(!stopGame) {
+				state.persist();
+				for(int i = 0; i < 10000/UPDATE_TIME && !stopGame; i++) {
+					Thread.sleep(UPDATE_TIME);
+				}
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		System.err.println("finished databaseSaveFunction");
+	
 	}
 }

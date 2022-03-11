@@ -37,7 +37,4 @@ public class Coin {
 	public void setY(int y) {
 		this.y = y;
 	}
-	
-	
-	
 }

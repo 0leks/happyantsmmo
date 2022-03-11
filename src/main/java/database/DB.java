@@ -15,7 +15,7 @@ public class DB {
 	public static final AccountsDB accountsDB;
 	public static final CoinDB coinsDB;
 	
-	static {
+	static { 
 		String url = "jdbc:sqlite:" + DATA_DIR + "main.db";
 		try {
 			connection = DriverManager.getConnection(url);

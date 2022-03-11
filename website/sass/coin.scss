@@ -8,19 +8,12 @@ body {
     overflow: hidden; // firefox adds unneeded scrollbars
 }
 
-.player text {
-    fill: white;
-    text-anchor: middle;
-    dominant-baseline: middle;
+#textCanvas {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
 }
 
-.coin {
-    text {
-        fill: black;
-        text-anchor: middle;
-        dominant-baseline: middle;
-    }
-    circle {
-        fill: goldenrod;
-    }
-}

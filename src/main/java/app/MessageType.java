@@ -1,5 +1,5 @@
 package app;
 
 public enum MessageType {
-	HELLO, MOVE;
+	HELLO, MOVE, STOP;
 }

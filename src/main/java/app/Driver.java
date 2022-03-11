@@ -53,9 +53,11 @@ public class Driver {
 			ctx.result(jo.toString());
 		});
 		app.get("/account", ctx -> {
+			System.err.println("GET /ACCOUNT");
 			String token = ctx.queryParam("token");
-			System.err.println(token);
+			System.err.println("token = " + token);
 			AccountInfo info = Accounts.getAccountInfo(token);
+			System.err.println("acc info = " + info);
 			if (info == null) {
 				ctx.status(HttpCode.IM_A_TEAPOT);
 			}
@@ -65,13 +67,14 @@ public class Driver {
 					ctx.result("");
 				}
 				else {
-					
 					ctx.result(info.handle);
 				}
 			}
 		});
 		app.post("/account", ctx -> {
+			System.err.println("POST /ACCOUNT");
 			String token = ctx.queryParam("token");
+			System.err.println("try creat acc " + ctx.body() + ", " + token);
 			if (Accounts.createAccount(token, ctx.body())) {
 				System.err.println("Created account " + ctx.body());
 				ctx.result("success");
@@ -82,6 +85,5 @@ public class Driver {
 				ctx.status(HttpCode.BAD_REQUEST);
 			}
 		});
-		
 	}
 }

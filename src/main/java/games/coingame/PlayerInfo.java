@@ -44,4 +44,9 @@ public class PlayerInfo {
 	public void setY(int y) {
 		this.y = y;
 	}
+	
+	@Override
+	public String toString() {
+		return String.format("{%d, %d, %d, %d}", id, numcoins, x, y);
+	}
 }

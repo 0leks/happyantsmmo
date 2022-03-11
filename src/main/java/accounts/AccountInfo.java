@@ -34,4 +34,9 @@ public class AccountInfo {
 	public void setHandle(String handle) {
 		this.handle = handle;
 	}
+	
+	@Override
+	public String toString() {
+		return id + "," + googleid + "," + handle;
+	}
 }

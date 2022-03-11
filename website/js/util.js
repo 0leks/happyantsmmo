@@ -77,7 +77,8 @@ function requestAccountInfo(token) {
 }
 
 function registerAccount(token, handle) {
-    return makeRequest("POST", 'account', 'token=' + token, handle);
+    console.log('POSTING account create');
+    return makeRequest('POST', 'account', 'token=' + token, handle);
 }
 
 function requestAllAccounts() {
