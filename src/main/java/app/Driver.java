@@ -23,12 +23,16 @@ public class Driver {
 		coingame.start();
 		
 		Javalin app = Javalin.create(config -> {
-			config.enableCorsForOrigin("http://localhost");
+//			config.enableCorsForOrigin("http://localhost");
+			config.enableCorsForAllOrigins();
 		}).start(PORT);
 
 		app.ws("/coin", ws -> {
 			ws.onClose(ctx -> coingame.closedConnection(ctx));
 			ws.onMessage(ctx -> coingame.receiveMessage(ctx));
+		});
+		app.get("/", ctx -> {
+			ctx.result("hello world");
 		});
 		
 		app.get("/allaccounts", ctx -> {
