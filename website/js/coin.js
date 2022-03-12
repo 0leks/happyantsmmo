@@ -98,7 +98,6 @@ function receiveMessage(msg) {
                 playerInfos[player.id] = player;
 
                 if ('target' in player) {
-                    console.log(player.target);
                     if (player.id == myID && playerTargetPositions[myID]) {
                         playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
                         playerTargetPositions[myID].previousTime = previousTime;

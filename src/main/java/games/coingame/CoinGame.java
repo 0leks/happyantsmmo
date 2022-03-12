@@ -1,7 +1,6 @@
 package games.coingame;
 
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.concurrent.*;
 
 import org.json.*;
@@ -15,8 +14,8 @@ import static app.Util.currentTime;
 
 public class CoinGame {
 	
-	private static final int TICK_TIME = 333;
-	private static final int UPDATE_TIME = 333;
+	private static final int TICK_TIME = 300;
+	private static final int UPDATE_TIME = 2000;
 	private static final int PLAYER_SPEED = 1000;
 	
 	/**
@@ -149,7 +148,7 @@ public class CoinGame {
 		movePlayer(player);
 		playerTargetLocations.put(player, new Vec3(x, y, currentTime()));
 		changedLocations.add(player.id);
-		sendLocations();
+		sendLocations(false);
 	}
 	
 	public void receiveMessage(WsMessageContext ctx) {
@@ -228,7 +227,6 @@ public class CoinGame {
 	
 	private void checkCoinCollect() {
 		for (PlayerInfo info : contextToPlayerInfoMap.values()) {
-			
 			List<Coin> coins = state.getCoinsInRange(
 					new Vec2(info.x - 300, info.y - 300), 
 					new Vec2(info.x + 300, info.y + 300));
@@ -237,6 +235,9 @@ public class CoinGame {
 				state.playerCollectsCoin(info, c);
 				deletedCoins.add(c);
 			}
+		}
+		if (!deletedCoins.isEmpty()) {
+			sendLocations(false);
 		}
 	}
 	
@@ -271,7 +272,7 @@ public class CoinGame {
 		try {
 			while(!stopGame) {
 				if (currentTime() >= lastSentUpdate + UPDATE_TIME) {
-					sendLocations();
+					sendLocations(true);
 				}
 				long timetosleep = UPDATE_TIME + lastSentUpdate - currentTime();
 				Thread.sleep(timetosleep);
@@ -281,7 +282,7 @@ public class CoinGame {
 		}
 		System.err.println("finished updateFunction");
 	}
-	private void sendLocations() {
+	private void sendLocations(boolean heartbeat) {
 		lastSentUpdate = currentTime();
 		// TODO add an output queue intermediate here?
 		JSONObject jo = new JSONObject();
@@ -327,9 +328,14 @@ public class CoinGame {
 					jo.put("coins", coinsArray);
 //					System.err.println("sending " + coinsArray.length() + " coins");
 				}
-
-				String tosend = jo.toString();
-				ctx.send(tosend);
+				
+				// if at least 1 thing to send
+				// TODO heartbeat needs to be recorded per connection. 
+				// if I start sending only data that is in viewport,
+				// then need to make sure that all connections get periodic heartbeats.
+				if (heartbeat || jo.length() > 1) {
+					ctx.send(jo.toString());
+				}
 			}
 		}
 	}
