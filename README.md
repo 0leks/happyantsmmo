@@ -15,3 +15,6 @@ add the eclipse maven project, install, run as java application with `Chat.java`
 - [CORS Info](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
 - [Google developer dashboard](https://console.cloud.google.com/)
 - [Google OAuth playground](https://developers.google.com/oauthplayground)
+
+
+TODO https://docs.microsoft.com/en-us/azure/app-service/quickstart-java?tabs=javase&pivots=platform-windows

@@ -1,4 +1,8 @@
 
+
+let WORLD_SCALE = 10;
+let playerSpeed = 100*WORLD_SCALE;
+
 console.log("connecting to websocket at /coin");
 let ws = new WebSocket("ws://" + location.hostname + ":7070/coin");
 ws.onmessage = receiveMessage;
@@ -48,8 +52,8 @@ function sendMove(x, y) {
 document.addEventListener('click', logMouseEvent);
 function logMouseEvent(e) {
     // console.log(e);
-    let mypos = getMyPosition();
-    let targetPos = [mypos[0] + (e.x - glCanvas.width / 2), mypos[1] - (e.y - glCanvas.height / 2)];
+    let mypos = getMyPosition(myID);
+    let targetPos = [mypos[0] + (e.x - glCanvas.width / 2) * WORLD_SCALE, mypos[1] - (e.y - glCanvas.height / 2) * WORLD_SCALE];
     // console.log('mypos:' + mypos);
     playerTargetPositions[myID] = {
         'from': new Vector(mypos[0], mypos[1], 0),
@@ -93,9 +97,19 @@ function receiveMessage(msg) {
                 playerPositions[player.id] = [player.x, player.y];
                 playerInfos[player.id] = player;
 
-                if (player.id == myID && playerTargetPositions[myID]) {
-                    playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
-                    playerTargetPositions[myID].previousTime = previousTime;
+                if ('target' in player) {
+                    console.log(player.target);
+                    if (player.id == myID && playerTargetPositions[myID]) {
+                        playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
+                        playerTargetPositions[myID].previousTime = previousTime;
+                    }
+                    else {
+                        playerTargetPositions[player.id] = {
+                            'from': new Vector(player.x, player.y, 0),
+                            'to': new Vector(player.target.x, player.target.y, 0),
+                            'previousTime': previousTime
+                        };
+                    }
                 }
             });
 
@@ -134,11 +148,11 @@ let currentScale = [1.0, 1.0];
 let squareMesh = {};
 let circleMesh = {};
 
-let PLAYER_SIZE = 60;
+let PLAYER_SIZE = 600;
 let playerPositions = {};
 let playerTargetPositions = {};
 let playerInfos = {};
-let COIN_SIZE = 20;
+let COIN_SIZE = 200;
 let coinPositions = {};
 
 // Rendering data shared with the
@@ -156,28 +170,27 @@ let degreesPerSecond = 90.0;
 
 window.addEventListener("load", startup, false);
 
-function getMyPosition() {
-    if (myID in playerPositions) {
+function getMyPosition(playerid) {
+    if (playerid in playerPositions) {
         let delta2 = new Vector(0, 0);
-        if (myID in playerTargetPositions) {
-            let current = new Vector(playerTargetPositions[myID].from.x, playerTargetPositions[myID].from.y, 0);
-            let target = new Vector(playerTargetPositions[myID].to.x, playerTargetPositions[myID].to.y, 0);
+        if (playerid in playerTargetPositions) {
+            let current = new Vector(playerTargetPositions[playerid].from.x, playerTargetPositions[playerid].from.y, 0);
+            let target = new Vector(playerTargetPositions[playerid].to.x, playerTargetPositions[playerid].to.y, 0);
 
-            let deltaTime = previousTime - playerTargetPositions[myID].previousTime;
-            let playerSpeed = 100;
+            let deltaTime = previousTime - playerTargetPositions[playerid].previousTime;
             let secondsElapsed = deltaTime / 1000;
 
             let deltaVector = target.subtract(current);
                 delta2 = deltaVector.unit().multiply(secondsElapsed * playerSpeed);
                 if (delta2.length() > deltaVector.length()) {
                     delta2 = deltaVector;
-                    delete playerTargetPositions[myID];
+                    delete playerTargetPositions[playerid];
                 }
                 let estimatedPos = current.add(delta2);
-                playerPositions[myID][0] = estimatedPos.x;
-                playerPositions[myID][1] = estimatedPos.y;
+                playerPositions[playerid][0] = estimatedPos.x;
+                playerPositions[playerid][1] = estimatedPos.y;
         }
-        return [playerPositions[myID][0], playerPositions[myID][1]];
+        return [playerPositions[playerid][0], playerPositions[playerid][1]];
     }
     return [0, 0];
 }
@@ -262,7 +275,7 @@ function startup() {
     currentRotation = [0, 1];
     // currentScale = [1.0, aspectRatio];
     let scale = 1;
-    currentScale = [2 * scale / glCanvas.width, 2 * scale / glCanvas.height];
+    currentScale = [2 * scale / glCanvas.width / WORLD_SCALE, 2 * scale / glCanvas.height / WORLD_SCALE];
 
     makeSquareMesh(0, 0);
     makeCircleMesh();
@@ -334,6 +347,7 @@ function drawMeshes(mesh, positions, scale) {
     }
 }
 
+let cameraTranslate = [0, 0];
 function animateScene() {
     gl.viewport(0, 0, glCanvas.width, glCanvas.height);
     gl.clearColor(0, 0, 0, 1);
@@ -349,30 +363,36 @@ function animateScene() {
     gl.uniform2fv(uScalingFactor, currentScale);
 
     uCameraTranslate = gl.getUniformLocation(shaderProgram, "uCameraTranslate");
+    gl.uniform2fv(uCameraTranslate, cameraTranslate);
 
-    gl.uniform2fv(uCameraTranslate, getMyPosition());
 
+    // DRAW BACKGROUND SQUARES
     gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 2000);
+    drawMeshes(squareMesh, {0: [0,0]}, 2000*WORLD_SCALE);
     
     gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 1600);
+    drawMeshes(squareMesh, {0: [0,0]}, 1600*WORLD_SCALE);
 
     gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 800);
+    drawMeshes(squareMesh, {0: [0,0]}, 800*WORLD_SCALE);
 
     gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 200);
+    drawMeshes(squareMesh, {0: [0,0]}, 200*WORLD_SCALE);
 
-    
-    
     let radians = currentAngle * Math.PI / 180.0;
     currentRotation[0] = Math.sin(radians);
     currentRotation[1] = Math.cos(radians);
     gl.uniform2fv(uRotationVector, currentRotation);
 
+    // DRAW PLAYERS
     gl.uniform4fv(uGlobalColor, [0.1, 0.7, 0.2, 1.0]);
-    drawMeshes(squareMesh, playerPositions, PLAYER_SIZE);
+    let pos = [];
+    for (playerid in playerPositions) {
+        pos.push(getMyPosition(playerid));
+    }
+    drawMeshes(squareMesh, pos, PLAYER_SIZE);
+
+    // DRAW COINS
     gl.uniform4fv(uGlobalColor, [.9, 0.6, 0.2, 1.0]);
     drawMeshes(circleMesh, coinPositions, COIN_SIZE);
     
@@ -382,17 +402,18 @@ function animateScene() {
     textContext.strokeRect(0, 0, textContext.canvas.width, textContext.canvas.height);
 
     textContext.save();
-    let mypos = getMyPosition();
-    textContext.translate(-mypos[0] + textContext.canvas.width/2, mypos[1] + textContext.canvas.height/2);
+    textContext.translate(textContext.canvas.width/2, textContext.canvas.height/2);
+    textContext.scale(1/WORLD_SCALE, 1/WORLD_SCALE);
+    textContext.translate(-cameraTranslate[0], cameraTranslate[1]);
 
-    textContext.font = '16px serif';
+    textContext.font = '160px serif';
     for (const [id, coinPos] of Object.entries(coinPositions)) {
         textContext.fillText('1', coinPos[0], -coinPos[1]);
     }
-    textContext.font = '24px serif';
+    textContext.font = '240px serif';
     for (const [id, playerinfo] of Object.entries(playerInfos)) {
-        textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10);
-        textContext.fillText('' + playerinfo.numcoins, playerPositions[id][0], -playerPositions[id][1] + 15);
+        textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
+        textContext.fillText('' + playerinfo.numcoins, playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
     }
     textContext.restore();
 
@@ -403,7 +424,27 @@ function animateScene() {
         //   let deltaAngle = ((currentTime - previousTime) / 1000.0) * degreesPerSecond;
         // currentAngle = (currentAngle + deltaAngle) % 360;
 
+        
+        let deltaTime = currentTime - previousTime;
         previousTime = currentTime;
+
+
+
+        let mypos = getMyPosition(myID);
+        let posVec = new Vector(mypos[0], mypos[1], 0);
+        let cameraVec = new Vector(cameraTranslate[0], cameraTranslate[1], 0);
+        let adjustmentVec = posVec.subtract(cameraVec);
+        let distance = adjustmentVec.length();
+        let maxDistance = deltaTime * playerSpeed / 1000;
+        // console.log("distance: " + distance + ', maxDistance: ' + maxDistance);
+        if (distance <= maxDistance) {
+            cameraTranslate = mypos;
+        }
+        else {
+            let ratio = distance/maxDistance;
+            let newCameraVec = adjustmentVec.unit().multiply(maxDistance*Math.sqrt(ratio));
+            cameraTranslate = [cameraTranslate[0] + newCameraVec.x, cameraTranslate[1] + newCameraVec.y];
+        }
         animateScene();
     });
 }

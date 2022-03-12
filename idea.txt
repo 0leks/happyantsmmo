@@ -21,3 +21,7 @@ players can level up their
 
 
 oops its not bees, perhaps some other material instead of pollen
+
+
+https://docs.microsoft.com/en-us/azure/app-service/quickstart-java?tabs=javase&pivots=platform-windows
+

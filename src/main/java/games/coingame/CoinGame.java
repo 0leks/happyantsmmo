@@ -17,8 +17,8 @@ public class CoinGame {
 	
 	private static final int TICK_TIME = 333;
 	private static final int UPDATE_TIME = 333;
-	private static final int PLAYER_SPEED = 100;
-
+	private static final int PLAYER_SPEED = 1000;
+	
 	/**
 	 * This is the main map that gets iterated to send updates to all contexts
 	 */
@@ -176,29 +176,45 @@ public class CoinGame {
 		if (!playerTargetLocations.containsKey(player)) {
 			return;
 		}
-		
-		Vec2 target = playerTargetLocations.get(player).xy();
-		
-		Vec2 delta = new Vec2(target.x - player.x, target.y - player.y);
-		double distanceLeft = delta.magnitude();
-		
-		int elapsedTime = currentTime() - playerTargetLocations.get(player).z;
-		playerTargetLocations.get(player).z = currentTime();
-		double distanceTravelled = elapsedTime * PLAYER_SPEED / 1000.0;
-		if (distanceTravelled >= distanceLeft) {
-			player.x = target.x;
-			player.y = target.y;
-			playerTargetLocations.remove(player);
+		Vec3 interpolatedPosition = getInterpolatedPlayerPosition(player);
+		player.x = interpolatedPosition.x;
+		player.y = interpolatedPosition.y;
+		player.x = Math.max(Math.min(player.x, 10000), -10000);
+		player.y = Math.max(Math.min(player.y, 10000), -10000);
+
+		if (playerTargetLocations.containsKey(player)) {
+			Vec3 fullTarget = playerTargetLocations.get(player);
+			if(interpolatedPosition == fullTarget) {
+				playerTargetLocations.remove(player);
+				System.out.println(player.id + " reached destination");
+			}
+			else {
+				fullTarget.z = currentTime();
+			}
 		}
-		else {
-			delta.scale(distanceTravelled/distanceLeft);
-			player.x += delta.x;
-			player.y += delta.y;
-		}
-		player.x = Math.max(Math.min(player.x, 1000), -1000);
-		player.y = Math.max(Math.min(player.y, 1000), -1000);
 		changedLocations.add(player.id);
 		state.updatePlayerLocation(player);
+	}
+	
+	private Vec3 getInterpolatedPlayerPosition(PlayerInfo player) {
+		if (!playerTargetLocations.containsKey(player)) {
+			return new Vec3(player.x, player.y, 0);
+		}
+		Vec3 fullTarget = playerTargetLocations.get(player);
+		Vec2 targetLocation = fullTarget.xy();
+		int elapsedTime = currentTime() - fullTarget.z;
+		
+		Vec2 deltaLocation = new Vec2(targetLocation.x - player.x, targetLocation.y - player.y);
+		double distanceLeft = deltaLocation.magnitude();
+		
+		double distanceTravelled = elapsedTime * PLAYER_SPEED / 1000.0;
+		if (distanceTravelled >= distanceLeft) {
+			return fullTarget;
+		}
+		else {
+			deltaLocation.scale(distanceTravelled/distanceLeft);
+			return new Vec3(player.x + deltaLocation.x, player.y + deltaLocation.y, 0);
+		}
 	}
 	
 	private void movePlayers() {
@@ -211,8 +227,8 @@ public class CoinGame {
 		for (PlayerInfo info : contextToPlayerInfoMap.values()) {
 			
 			List<Coin> coins = state.getCoinsInRange(
-					new Vec2(info.x - 30, info.y - 30), 
-					new Vec2(info.x + 30, info.y + 30));
+					new Vec2(info.x - 300, info.y - 300), 
+					new Vec2(info.x + 300, info.y + 300));
 //			System.err.println("close to " + coins.size() + " coins");
 			for(Coin c : coins) {
 				state.playerCollectsCoin(info, c);
@@ -230,7 +246,7 @@ public class CoinGame {
 				checkCoinCollect();
 				
 				if (currentTime() - timeToNextCoin >= 0) {
-					state.addNewCoin((int)(Math.random()*2000) - 1000, (int)(Math.random()*2000) - 1000);
+					state.addNewCoin((int)(Math.random()*20000) - 10000, (int)(Math.random()*20000) - 10000);
 					timeToNextCoin = currentTime() + TICK_TIME;
 					timeToNextCoin += Math.max(0, 20000 - TICK_TIME*contextToPlayerInfoMap.size());
 				}
@@ -247,6 +263,7 @@ public class CoinGame {
 		System.err.println("finished gameFunction");
 	}
 
+//	private volatile int lastSentUpdate;
 	private void updateFunction() {
 //		long lastSent = 0;
 		try {
@@ -271,8 +288,8 @@ public class CoinGame {
 		}
 		System.err.println("finished updateFunction");
 	}
-	
 	private void sendLocations() {
+//		lastSentUpdate = currentTime();
 		// TODO add an output queue intermediate here?
 		JSONObject jo = new JSONObject();
 		jo.put("type", MessageType.MOVE);
@@ -281,7 +298,16 @@ public class CoinGame {
 		for (PlayerInfo info : contextToPlayerInfoMap.values()) {
 			if (changedLocations.contains(info.id) || sendAllPlayerLocations) {
 				changedLocations.remove(info.id);
-				players.put(new JSONObject(info));
+				
+				Vec3 location = getInterpolatedPlayerPosition(info);
+				JSONObject obj = new JSONObject(info);
+				obj.put("x", location.x);
+				obj.put("y", location.y);
+				
+				if (playerTargetLocations.containsKey(info)) {
+					obj.put("target", new JSONObject(playerTargetLocations.get(info)));
+				}
+				players.put(obj);
 			}
 		}
 		if (!players.isEmpty())

@@ -41,7 +41,11 @@ public class CoinGameState {
 	
 	public PlayerInfo getPlayerInfo(int id) {
 		if (!loadedPlayerInfo.containsKey(id)) {
-			loadedPlayerInfo.put(id, DB.coinsDB.getPlayerInfo(id));
+			PlayerInfo info = DB.coinsDB.getPlayerInfo(id);
+			if(info == null) {
+				return info;
+			}
+			loadedPlayerInfo.put(id, info);
 		}
 		return loadedPlayerInfo.get(id);
 	}
