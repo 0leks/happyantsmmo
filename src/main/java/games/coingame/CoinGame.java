@@ -145,8 +145,11 @@ public class CoinGame {
 	}
 	
 	public void receiveMove(WsMessageContext ctx, int x, int y) {
-		movePlayer(contextToPlayerInfoMap.get(ctx));
-		playerTargetLocations.put(contextToPlayerInfoMap.get(ctx), new Vec3(x, y, currentTime()));
+		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
+		movePlayer(player);
+		playerTargetLocations.put(player, new Vec3(x, y, currentTime()));
+		changedLocations.add(player.id);
+		sendLocations();
 	}
 	
 	public void receiveMessage(WsMessageContext ctx) {
@@ -263,25 +266,15 @@ public class CoinGame {
 		System.err.println("finished gameFunction");
 	}
 
-//	private volatile int lastSentUpdate;
+	private volatile int lastSentUpdate;
 	private void updateFunction() {
-//		long lastSent = 0;
 		try {
 			while(!stopGame) {
-				long starttime = currentTime();
-				sendLocations();
-				long endtime = currentTime();
-
-//				long timestamp = currentTime();
-//				long timeSinceLastSent = timestamp - lastSent;
-//				String status = String.format("%d delta %d", timestamp%10000, timeSinceLastSent);
-//				System.out.println(status);
-				
-				long timetosleep = UPDATE_TIME - (endtime - starttime);
-				if(timetosleep >= 50) {
-					Thread.sleep(timetosleep);
+				if (currentTime() >= lastSentUpdate + UPDATE_TIME) {
+					sendLocations();
 				}
-//				lastSent = timestamp;
+				long timetosleep = UPDATE_TIME + lastSentUpdate - currentTime();
+				Thread.sleep(timetosleep);
 			}
 		} catch (InterruptedException e) {
 			e.printStackTrace();
@@ -289,7 +282,7 @@ public class CoinGame {
 		System.err.println("finished updateFunction");
 	}
 	private void sendLocations() {
-//		lastSentUpdate = currentTime();
+		lastSentUpdate = currentTime();
 		// TODO add an output queue intermediate here?
 		JSONObject jo = new JSONObject();
 		jo.put("type", MessageType.MOVE);
