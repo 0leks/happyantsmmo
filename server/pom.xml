@@ -8,11 +8,11 @@
 		<version>2.6.3</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.example</groupId>
+	<groupId>ok</groupId>
 	<artifactId>spring-boot-complete</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>spring-boot-complete</name>
-	<description>Demo project for Spring Boot</description>
+	<description>Happy Ants MMO Server</description>
 
 	<properties>
 		<java.version>1.8</java.version>
@@ -30,14 +30,6 @@
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
 		<!-- end::actuator[] -->
-
-		<!-- tag::tests[] -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<!-- end::tests[] -->
 	</dependencies>
 
 	<build>
