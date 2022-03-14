@@ -1,8 +1,15 @@
 
 
 function connectLocalhost() {
-    let endpoint = "ws://localhost:80/user";
-    // let endpoint = "ws://spring-boot-complete-1647250737544.azurewebsites.net/user";
+    connectToServer("localhost");
+}
+function connectAzure() {
+    connectToServer("spring-boot-complete-1647250737544.azurewebsites.net");
+}
+
+
+function connectToServer(path) {
+    let endpoint = "ws://" + path + "/user";
     console.log("connecting to websocket at " + endpoint);
     let ws = new WebSocket(endpoint);
     ws.onmessage = msg => {
@@ -21,5 +28,4 @@ function connectLocalhost() {
         console.log("connected");
         ws.send("some message asdf");
     }
-    
 }

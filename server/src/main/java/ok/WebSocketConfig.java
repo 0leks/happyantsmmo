@@ -14,6 +14,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
 	// https://docs.spring.io/spring-framework/docs/4.0.1.RELEASE/spring-framework-reference/html/websocket.html
 	
+	
+	// IMPORTANT ALERT 
+	// in azure portal for the "App Service" go to "Configuration" -> "General settings" -> "Web sockets" ON
+	
 	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
 		System.err.println("registering handler");
 		HttpSessionHandshakeInterceptor intercept = new HttpSessionHandshakeInterceptor();
