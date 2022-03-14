@@ -1,7 +1,5 @@
 package com.example.springboot;
 
-import java.util.Arrays;
-
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -18,7 +16,7 @@ public class Application {
 	@Bean
 	public CommandLineRunner commandLineRunner(ApplicationContext ctx) {
 		return args -> {
-			System.out.println("running server");
+			System.out.println("running server 5");
 		};
 	}
 
