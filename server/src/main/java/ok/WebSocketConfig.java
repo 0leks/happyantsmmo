@@ -22,7 +22,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
 		intercept.setCopyAllAttributes(true);
 		registry.addHandler(new SocketTextHandler(), "/user")
 			.addInterceptors(intercept)
-			.setAllowedOrigins("http://localhost");
+			.setAllowedOriginPatterns("*");
+//			.setAllowedOrigins("http://localhost");
 	}
 
 }
