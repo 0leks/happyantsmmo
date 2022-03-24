@@ -1,0 +1,5 @@
+package ok.connections;
+
+public enum MessageType {
+	HELLO, MOVE, STOP;
+}

@@ -1,4 +1,4 @@
-package ok;
+package ok.connections;
 
 import java.util.*;
 
@@ -20,7 +20,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 		intercept.setCreateSession(true);
 		intercept.setCopyHttpSessionId(true);
 		intercept.setCopyAllAttributes(true);
-		registry.addHandler(new SocketTextHandler(), "/user")
+		registry.addHandler(new SocketTextHandler(), "/coin")
 			.addInterceptors(intercept)
 			.setAllowedOriginPatterns("*");
 //			.setAllowedOrigins("http://localhost");
