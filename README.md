@@ -18,3 +18,5 @@ add the eclipse maven project, install, run as java application with `Chat.java`
 
 
 TODO https://docs.microsoft.com/en-us/azure/app-service/quickstart-java?tabs=javase&pivots=platform-windows
+https://www.devglan.com/spring-boot/spring-boot-websocket-example
+

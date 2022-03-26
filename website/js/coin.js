@@ -4,7 +4,9 @@ let WORLD_SCALE = 10;
 let playerSpeed = 100*WORLD_SCALE;
 
 console.log("connecting to websocket at /coin");
-let ws = new WebSocket("ws://" + location.hostname + ":7070/coin");
+let targethost = "happyantsmmo-1647257684552.azurewebsites.net";
+// let targethost = "localhost:7070";
+let ws = new WebSocket("ws://" + targethost + "/coin");
 ws.onmessage = receiveMessage;
 ws.onclose = disconnected;
 ws.onopen = sendHello;

@@ -13,7 +13,7 @@ import org.springframework.web.socket.server.support.HttpSessionHandshakeInterce
 public class WebSocketConfig implements WebSocketConfigurer {
 
 	// https://docs.spring.io/spring-framework/docs/4.0.1.RELEASE/spring-framework-reference/html/websocket.html
-	
+	// https://docs.microsoft.com/en-us/azure/app-service/quickstart-java?tabs=javase&pivots=platform-windows
 	
 	// IMPORTANT ALERT 
 	// in azure portal for the "App Service" go to "Configuration" -> "General settings" -> "Web sockets" ON
