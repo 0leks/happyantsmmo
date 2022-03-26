@@ -44,8 +44,8 @@ function signOut() {
 function makeRequest(method, endpoint, params, body) {
     return new Promise(function (resolve, reject) {
         let xhr = new XMLHttpRequest();
-        let url = 'https://happyantsmmo-1647084020845.azurewebsites.net:7070/' + endpoint + (params ? ('?' + params) : '');
-        // let url = 'http://localhost:7070/' + endpoint + (params ? ('?' + params) : '');
+        // let url = 'https://happyantsmmo-1647084020845.azurewebsites.net:7070/' + endpoint + (params ? ('?' + params) : '');
+        let url = 'http://localhost/' + endpoint + (params ? ('?' + params) : '');
         xhr.open(method, url);
         xhr.onload = function () {
             if (this.status >= 200 && this.status < 300) {
