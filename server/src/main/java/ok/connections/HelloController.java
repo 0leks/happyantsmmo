@@ -16,13 +16,15 @@ import ok.games.coingame.PlayerInfo;
 @RestController
 public class HelloController {
 
-	@CrossOrigin(origins = "http://localhost:8080")
+//	@CrossOrigin(origins = "http://localhost:8080")
+	@CrossOrigin(origins = "*")
 	@GetMapping("/")
 	public String index() {
 		return "Greetings from Spring Boot!";
 	}
 	
-	@CrossOrigin(origins = "http://localhost:8080")
+//	@CrossOrigin(origins = "http://localhost:8080")
+	@CrossOrigin(origins = "*")
 	@GetMapping("/allaccounts")
 	public String allaccountsEndpoint() {
 		List<AccountInfo> accounts = DB.accountsDB.printAllAccounts();
@@ -46,7 +48,8 @@ public class HelloController {
 		return jo.toString();
 	}
 	
-	@CrossOrigin(origins = "http://localhost:8080")
+//	@CrossOrigin(origins = "http://localhost:8080")
+	@CrossOrigin(origins = "*")
 	@GetMapping("/account")
 	public String accountEndpoint(
 			@RequestParam("token") String token
@@ -70,7 +73,8 @@ public class HelloController {
 		}
 	}
 	
-	@CrossOrigin(origins = "http://localhost:8080")
+//	@CrossOrigin(origins = "http://localhost:8080")
+	@CrossOrigin(origins = "*")
 	@PostMapping("/account")
 	public ResponseEntity<String> accountPostEndpoint(
 			@RequestParam("token") String token,
