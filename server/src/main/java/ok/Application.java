@@ -13,8 +13,8 @@ public class Application {
 
 	public static CoinGame coingame;
 	public static void main(String[] args) {
-		coingame = new CoinGame();
-		coingame.start();
+//		coingame = new CoinGame();
+//		coingame.start();
 		
 		SpringApplication.run(Application.class, args);
 	}
