@@ -16,13 +16,13 @@ public class WebSocketConfig implements WebSocketConfigurer {
 	
 	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
 		System.err.println("registering handler");
-		HttpSessionHandshakeInterceptor intercept = new HttpSessionHandshakeInterceptor();
-		intercept.setCreateSession(true);
-		intercept.setCopyHttpSessionId(true);
-		intercept.setCopyAllAttributes(true);
-		registry.addHandler(new SocketTextHandler(), "/coin")
-			.addInterceptors(intercept)
-			.setAllowedOriginPatterns("*");
+//		HttpSessionHandshakeInterceptor intercept = new HttpSessionHandshakeInterceptor();
+//		intercept.setCreateSession(true);
+//		intercept.setCopyHttpSessionId(true);
+//		intercept.setCopyAllAttributes(true);
+//		registry.addHandler(new SocketTextHandler(), "/coin")
+//			.addInterceptors(intercept)
+//			.setAllowedOriginPatterns("*");
 //			.setAllowedOrigins("http://localhost");
 	}
 
