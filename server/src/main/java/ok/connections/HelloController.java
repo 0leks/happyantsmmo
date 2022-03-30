@@ -16,11 +16,9 @@ import ok.games.coingame.PlayerInfo;
 @RestController
 public class HelloController {
 
-//	@CrossOrigin(origins = "http://localhost:8080")
-	@CrossOrigin(origins = "*")
 	@GetMapping("/")
 	public String index() {
-		return "Greetings from Spring Boot basic test!";
+		return "Greetings from HAMMO!";
 	}
 
 	@GetMapping("/test")
