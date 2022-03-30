@@ -14,8 +14,11 @@ public class AccountsDB {
 	}
 
 	public void createAccountsTable() {
+		if (DBUtil.doesTableExist("accounts")) {
+			return;
+		}
 		String createtable = "CREATE TABLE IF NOT EXISTS accounts (\n"
-				+ "	id integer PRIMARY KEY,\n"
+				+ "	id SERIAL PRIMARY KEY,\n"
 				+ "	googleid text NOT NULL UNIQUE,\n"
 				+ "	handle text NOT NULL\n"
 				+ ");";

@@ -1,38 +1,50 @@
 package ok.database;
 
 import java.sql.*;
-import java.util.Optional;
+import java.util.*;
 
-import org.json.JSONObject;
-
-import ok.accounts.AccountInfo;
+import ok.games.coingame.PlayerInfo;
 
 public class DB {
-	private static final String DATA_DIR = "./data/";
+//	String url = "jdbc:sqlite:./data/main.db";
 	
+	private static String connectionString = System.getenv("DBSTRING");
 	private static Connection connection;
-
-	public static final AccountsDB accountsDB;
-	public static final CoinDB coinsDB;
+	public static AccountsDB accountsDB;
+	public static CoinDB coinsDB;
 	
-	static { 
-		String url = "jdbc:sqlite:" + DATA_DIR + "main.db";
-		try {
-			connection = DriverManager.getConnection(url);
-			if (connection != null) {
-				DatabaseMetaData meta = connection.getMetaData();
-				System.err.println("The driver name is " + meta.getDriverName());
-			}
-		} catch (SQLException e) {
-			System.err.println(e.getMessage());
-			System.err.println("FAILED TO OPEN DB, EXITING PROGRAM");
-			System.exit(0);
-		}
-			
-		accountsDB = new AccountsDB(connection);
-		coinsDB = new CoinDB(connection);
+	public static String getConnectionString() {
+		return connectionString;
+	}
+	public static boolean isConnected() {
+		return connection != null;
+	}
 
-		accountsDB.createAccountsTable();
-		coinsDB.createCoinGameTables();
+	static {
+		String url = getConnectionString();
+		if (url == null) {
+			System.err.println("No ConnectionString");
+		}
+		else {
+			try {
+				System.err.println(url);
+				connection = DriverManager.getConnection(url);
+				if (connection != null) {
+					DatabaseMetaData meta = connection.getMetaData();
+					System.err.println("The driver name is " + meta.getDriverName());
+				}
+				
+				DBUtil.setConnection(connection);
+				
+				accountsDB = new AccountsDB(connection);
+				coinsDB = new CoinDB(connection);
+				accountsDB.createAccountsTable();
+				coinsDB.createCoinGameTables();
+			} catch (SQLException e) {
+				System.err.println(e.getMessage());
+				System.err.println("FAILED TO OPEN DB");
+			}
+				
+		}
 	}
 }

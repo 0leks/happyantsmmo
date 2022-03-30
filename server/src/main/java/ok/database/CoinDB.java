@@ -14,7 +14,7 @@ public class CoinDB {
 
 	private static final String createtable = 
 			"CREATE TABLE IF NOT EXISTS " + PLAYERS_TABLE + " (\n"
-			+ "	id integer PRIMARY KEY,\n"
+			+ "	id SERIAL PRIMARY KEY,\n"
 			+ "	numcoins integer NOT NULL DEFAULT 0,\n"
 			+ "	x integer NOT NULL DEFAULT 0,\n"
 			+ "	y integer NOT NULL DEFAULT 0\n"
@@ -22,7 +22,7 @@ public class CoinDB {
 	
 	private static final String createtable2 = 
 			"CREATE TABLE IF NOT EXISTS " + COINS_TABLE + " (\n"
-			+ "	id integer PRIMARY KEY,\n"
+			+ "	id SERIAL PRIMARY KEY,\n"
 			+ "	x integer NOT NULL DEFAULT 0,\n"
 			+ "	y integer NOT NULL DEFAULT 0\n"
 			+ ");";

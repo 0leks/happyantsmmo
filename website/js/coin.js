@@ -5,7 +5,8 @@ let playerSpeed = 100*WORLD_SCALE;
 
 console.log("connecting to websocket at /coin");
 // let ws = new WebSocket("ws://" + location.hostname + "/coin");
-let ws = new WebSocket("ws://spring-boot-complete-1647250737544.azurewebsites.net/coin");
+let ws = new WebSocket("ws://localhost/coin");
+// let ws = new WebSocket("ws://spring-boot-complete-1647250737544.azurewebsites.net/coin");
 ws.onmessage = receiveMessage;
 ws.onclose = disconnected;
 ws.onopen = sendHello;
