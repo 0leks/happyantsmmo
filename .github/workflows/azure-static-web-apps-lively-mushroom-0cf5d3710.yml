@@ -22,15 +22,15 @@ jobs:
         uses: gha-utilities/sass-build@v0.4.7
         with:
             source: |
-              /website/sass/main.scss
-              /website/sass/shared.scss
-              /website/sass/signin.scss
-              /website/sass/coin.scss
+              website/sass/main.scss
+              website/sass/shared.scss
+              website/sass/signin.scss
+              website/sass/coin.scss
             destination: |
-              /website/css/main.css
-              /website/css/shared.css
-              /website/css/signin.css
-              /website/css/coin.css
+              website/css/main.css
+              website/css/shared.css
+              website/css/signin.css
+              website/css/coin.css
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
