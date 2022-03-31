@@ -11,10 +11,10 @@ public class DBUtil {
 	}
 
 	public static List<String> getTables() {
-		if (connection == null) {
-			return null;
-		}
 		List<String> tables = new LinkedList<>();
+		if (connection == null) {
+			return tables;
+		}
 		String selectTables = "SELECT * FROM INFORMATION_SCHEMA.TABLES;";
 		try (Statement stmt = connection.createStatement()) {
 			try (ResultSet rs = stmt.executeQuery(selectTables)) {
