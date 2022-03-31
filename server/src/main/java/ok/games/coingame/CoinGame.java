@@ -385,4 +385,9 @@ public class CoinGame {
 		System.err.println("finished databaseSaveFunction");
 	
 	}
+	
+	@Override
+	public String toString() {
+		return "coingame";
+	}
 }

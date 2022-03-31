@@ -2,6 +2,7 @@ package ok.connections;
 
 import org.springframework.web.bind.annotation.*;
 
+import ok.Application;
 import ok.database.*;
 
 @RestController
@@ -27,6 +28,7 @@ public class HealthController {
 				+ makeH2("DB Connected: " + DB.isConnected())
 				+ makeH2("Tables: " + String.join(", ", DBUtil.getTables()))
 				+ makeH2("debug: " + DB.debug)
+				+ makeH2("coingame: " + Application.coingame)
 		        + "</body>\n</html>";
 	}
 }
