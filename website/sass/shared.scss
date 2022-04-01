@@ -4,13 +4,13 @@
     box-sizing: border-box;
 }
 
-body {
-    background-color:rgb(163, 129, 98);
-}
-
 .hidden {
     display: none;
     visibility: hidden;
+}
+
+body {
+    background-color:rgb(163, 129, 98);
 }
 
 header {
@@ -33,3 +33,10 @@ header {
     }
 }
 
+#content {
+    button {
+        margin: 1em;
+        padding: 1em;
+        border-radius: 0.5em;
+    }
+}
