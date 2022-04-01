@@ -10,9 +10,9 @@
     <!-- lookup parent from repository -->
   </parent>
   <groupId>ok</groupId>
-  <artifactId>hammo</artifactId>
+  <artifactId>HappyAntsMMOServer</artifactId>
   <version>0.0.1-SNAPSHOT</version>
-  <name>hammo</name>
+  <name>HappyAntsMMOServer</name>
   <description>Happy Ants MMO Server</description>
   <properties>
     <java.version>1.8</java.version>
@@ -91,10 +91,10 @@
         <configuration>
           <schemaVersion>v2</schemaVersion>
           <subscriptionId>10c219e8-26fd-44d0-8da7-e9da9d077f5f</subscriptionId>
-          <resourceGroup>hammo-1648613364515-rg</resourceGroup>
-          <appName>hammo-1648613364515</appName>
+          <resourceGroup>happyantsmmo</resourceGroup>
+          <appName>HappyAntsMMOServer</appName>
           <pricingTier>P1v2</pricingTier>
-          <region>centralus</region>
+          <region>westus</region>
           <runtime>
             <os>Windows</os>
             <javaVersion>Java 11</javaVersion>
