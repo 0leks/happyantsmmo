@@ -44,7 +44,7 @@ function signOut() {
 function makeRequest(method, endpoint, params, body) {
     return new Promise(function (resolve, reject) {
         let xhr = new XMLHttpRequest();
-        let url = 'https://hammo-1648613364515.azurewebsites.net/' + endpoint + (params ? ('?' + params) : '');
+        let url = 'https://happyantsmmoserver.azurewebsites.net/' + endpoint + (params ? ('?' + params) : '');
         // let url = 'http://localhost/' + endpoint + (params ? ('?' + params) : '');
         xhr.open(method, url);
         xhr.onload = function () {
