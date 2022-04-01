@@ -391,6 +391,10 @@ public class CoinGame {
 	
 	@Override
 	public String toString() {
-		return "coingame";
+		return "coingame{" + String.join(", ", new String[]
+				{
+					"#connections: " + contextToPlayerInfoMap.size(),
+					"stopGame: " + stopGame
+				}) + "}";
 	}
 }
