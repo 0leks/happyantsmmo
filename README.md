@@ -1,3 +1,4 @@
+[![Azure Static Web Apps CI/CD](https://github.com/0leks/happyantsmmo/actions/workflows/azure-static-web-apps-lively-rock-09a65931e.yml/badge.svg?branch=prodclient)](https://github.com/0leks/happyantsmmo/actions/workflows/azure-static-web-apps-lively-rock-09a65931e.yml)
 
 # Instructions
 
