@@ -276,7 +276,7 @@ public class CoinGame {
 				movePlayers();
 				checkCoinCollect();
 				
-				if (currentTime() - timeToNextCoin >= 0) {
+				if (currentTime() - timeToNextCoin >= 0 && state.getCoins().size() < 200) {
 					state.addNewCoin((int)(Math.random()*20000) - 10000, (int)(Math.random()*20000) - 10000);
 					timeToNextCoin = currentTime() + TICK_TIME;
 					timeToNextCoin += Math.max(0, 20000 - TICK_TIME*contextToPlayerInfoMap.size());
@@ -337,13 +337,16 @@ public class CoinGame {
 		sendAllPlayerLocations = false;
 		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
 			if (ctx.isOpen()) {
-				
 				JSONArray coinsArray = new JSONArray();
 				Set<Integer> alreadySharedCoins = contextToCoinsShared.get(ctx);
 				for(Coin coin : state.getCoins()) {
 					if (!alreadySharedCoins.contains(coin.id)) {
 						coinsArray.put(new JSONObject(coin));
 						alreadySharedCoins.add(coin.id);
+						
+						if (coinsArray.length() > 200) {
+							break;
+						}
 					}
 				}
 				
