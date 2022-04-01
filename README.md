@@ -6,7 +6,7 @@ use `monitor_sass.cmd` to generate css from the scss files
 
 use `host_website.cmd` to host the website (requires python 3)
 
-add the eclipse maven project, install, run as java application with `Chat.java` to host the server
+add the eclipse maven project under /server, install, run as java application with `Application.java` to host the server
 
 
 
