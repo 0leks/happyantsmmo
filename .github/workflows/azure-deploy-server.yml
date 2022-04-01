@@ -29,6 +29,6 @@ jobs:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     # Maven deploy, make sure you have correct configurations in your pom.xml
-    - name: deploy to Azure Spring Cloud using Maven
+    - name: deploy Azure Webapp using Maven
       run: |
-        mvn azure-spring-cloud:deploy
+        mvn package azure-webapp:deploy
