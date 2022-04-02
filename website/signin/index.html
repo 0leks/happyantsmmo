@@ -1,10 +1,19 @@
 <!DOCTYPE html>
 <html>
     <head>
+
+        <meta name="google-signin-client_id" content="729886368028-j3f6iq0nshp3vog9bet3cu79ms34r00s.apps.googleusercontent.com">
+
         <!-- <meta name="viewport" content="width=device-width, initial-scale=1"> -->
         <title>HAMMO Sign In Page</title>
         <link rel="stylesheet" href="/css/shared.css">
         <link rel="stylesheet" href="/css/signin.css">
+
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
+
+        <script src="https://apis.google.com/js/platform.js" async defer></script>
     </head>
     <body>
 
@@ -12,9 +21,16 @@
             <div class="title">Happy Ants MMO</div>
         </header>
 
-
-        <section>
-            <button id="google">Google</button>
+        <section id="content">
+            <!-- <button id="google">
+                <img src="../images/btn_google_light_normal_ios.svg" alt="google G">
+                <s>Sign in with Google</s>
+            </button> -->
+            <div class="g-signin2"
+                data-onfailure="onFailure" 
+                data-onsuccess="onSuccess" 
+                data-theme="light" 
+                data-longtitle="true"></div>
         </section>
         
         <script src="/js/util.js"></script>

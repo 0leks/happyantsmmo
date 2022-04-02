@@ -1,17 +1,33 @@
 
-#total-accounts {
+section#content {
+    display: flex;
+    justify-content: center;
 
-    &:before {
-        content: 'total accounts: ';
+    div#info {
+        border-radius: 0.5em;
+        padding: 1em;
+        color: white;
+        background-color: black;
+        
+
+        #total-accounts {
+            &:before {
+                content: 'total accounts: ';
+            }
+        }
+        
+        #currently-playing {
+            &:before {
+                content: 'currently online: ';
+            }
+        }
+
+        #account-list {
+            list-style-type: none;
+
+            li {
+                margin-left: 1em;
+            }
+        }
     }
-}
-
-#currently-playing {
-    &:before {
-        content: 'currently online: ';
-    }
-}
-
-button {
-    padding: 1em;
 }
