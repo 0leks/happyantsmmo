@@ -1,23 +1,5 @@
 
-
-function httpGet(theUrl) {
-    var xmlHttp = new XMLHttpRequest();
-    xmlHttp.open( "GET", theUrl, false ); // false for synchronous request
-    xmlHttp.send( null );
-    return xmlHttp.responseText;
-}
-
 id("google").addEventListener("click", () => signInGoogle());
-
-function signIn() {
-    console.log("signing in");
-
-
-}
-
-function signOut() {
-    console.log("signing out");
-}
 
 function signInGoogle() {
     // Google's OAuth 2.0 endpoint for requesting an access token
@@ -50,5 +32,3 @@ function signInGoogle() {
     document.body.appendChild(form);
     form.submit();
 }
-
-
