@@ -1,4 +1,10 @@
 
+let SERVER_URL = 'happyantsmmoserver.azurewebsites.net/';
+let SERVER_PROTOCOL = 'https://';
+// let SERVER_URL = 'localhost/';
+// let SERVER_PROTOCOL = 'http://';
+
+
 // get elements using id('<elementid>');
 let id = id => document.getElementById(id);
 
@@ -44,8 +50,7 @@ function signOut() {
 function makeRequest(method, endpoint, params, body) {
     return new Promise(function (resolve, reject) {
         let xhr = new XMLHttpRequest();
-        let url = 'https://happyantsmmoserver.azurewebsites.net/' + endpoint + (params ? ('?' + params) : '');
-        // let url = 'http://localhost/' + endpoint + (params ? ('?' + params) : '');
+        let url = SERVER_PROTOCOL + SERVER_URL + endpoint + (params ? ('?' + params) : '');
         xhr.open(method, url);
         xhr.onload = function () {
             if (this.status >= 200 && this.status < 300) {
