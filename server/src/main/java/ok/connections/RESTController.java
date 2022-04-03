@@ -11,6 +11,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import ok.accounts.Accounts;
+import ok.connections.sessions.*;
 import ok.Application;
 import ok.accounts.AccountInfo;
 import ok.database.DB;
@@ -30,11 +31,19 @@ public class RESTController {
 	@PostMapping("/googlesignin")
 	public ResponseEntity<String> googlesignin(
 			@RequestBody String body) {
-		String id = GoogleAPI.getIDFromIDToken(body);
-		if (id == null) {
+		String googleid = GoogleAPI.getIDFromIDToken(body);
+		if (googleid == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
 		
+		Session session = SessionManager.getSession(googleid);
+		
+		// TODO get account info if it exists and return it
+		AccountInfo account = Accounts.getAccountInfo(googleid);
+		if (account == null) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("DB error");
+		}
+		// if not exist, just return different message
 		
 		return ResponseEntity.status(HttpStatus.OK).body("asdf");
 	}

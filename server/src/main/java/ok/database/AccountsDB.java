@@ -19,7 +19,7 @@ public class AccountsDB {
 		}
 		String createtable = "CREATE TABLE IF NOT EXISTS accounts (\n"
 				+ "	id SERIAL PRIMARY KEY,\n"
-				+ "	googleid text NOT NULL UNIQUE,\n"
+				+ "	googleid text NOT NULL UNIQUE,\n" // TODO index on googleid for quick lookup
 				+ "	handle text NOT NULL\n"
 				+ ");";
 		try (Statement stmt = connection.createStatement()) {
@@ -64,7 +64,13 @@ public class AccountsDB {
 		return Optional.empty();
 	}
 	
-	public Optional<AccountInfo> query(String googleid) {
+	/**
+	 * 
+	 * @param googleid
+	 * @return AccountInfo on success, 
+	 * 			empty optional on nonexistant account
+	 */
+	public Optional<AccountInfo> query(String googleid) throws SQLException {
 		String query = "SELECT * FROM accounts "
 					+ "WHERE accounts.googleid='" + googleid + "'";
 		try (Statement stmt = connection.createStatement();
@@ -75,8 +81,6 @@ public class AccountsDB {
 						rs.getString("googleid"), 
 						rs.getString("handle")));
 			}
-		} catch (SQLException e) {
-			System.out.println(e.getMessage());
 		}
 		return Optional.empty();
 	}
