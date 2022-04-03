@@ -1,16 +1,20 @@
 package ok.connections;
 
-import java.util.List;
+import java.util.*;
+
+import javax.servlet.http.*;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.http.*;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
 import ok.accounts.Accounts;
 import ok.Application;
 import ok.accounts.AccountInfo;
 import ok.database.DB;
+import ok.external.GoogleAPI;
 import ok.games.coingame.PlayerInfo;
 
 @RestController
@@ -18,20 +22,31 @@ public class RESTController {
 
 	@CrossOrigin(origins = "*")
 	@GetMapping("/")
-	public String index() {
-		return "Greetings from HAMMO!";
+	public ResponseEntity<String> index() {
+		return ResponseEntity.status(HttpStatus.OK).body("Greetings from HAMMO Server!");
 	}
-
+	
 	@CrossOrigin(origins = "*")
-	@GetMapping("/test")
-	public String test() {
-		return "test endpoint!";
+	@PostMapping("/googlesignin")
+	public ResponseEntity<String> googlesignin(
+			@RequestBody String body) {
+		String id = GoogleAPI.getIDFromIDToken(body);
+		if (id == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		
+		
+		return ResponseEntity.status(HttpStatus.OK).body("asdf");
 	}
+	
 	
 ////	@CrossOrigin(origins = "http://localhost:8080")
 	@CrossOrigin(origins = "*")
 	@GetMapping("/allaccounts")
-	public String allaccountsEndpoint() {
+	public String allaccountsEndpoint(HttpServletRequest request) {
+		System.err.println("allaccountsEndpoint session id: " + request.getSession().getId());
+		System.err.println(request.getRemoteHost());
+		System.err.println(request.isSecure());
 		List<AccountInfo> accounts = DB.accountsDB.printAllAccounts();
 		
 		JSONObject jo = new JSONObject();
@@ -57,12 +72,12 @@ public class RESTController {
 	@CrossOrigin(origins = "*")
 	@GetMapping("/account")
 	public String accountEndpoint(
-			@RequestParam("token") String token
+			@RequestParam("id_token") String id_token
 			) {
 		System.err.println("GET /ACCOUNT");
 //		String token = ctx.queryParam("token");
-		System.err.println("token = " + token);
-		AccountInfo info = Accounts.getAccountInfo(token);
+		System.err.println("id_token = " + id_token);
+		AccountInfo info = Accounts.getAccountInfo(id_token);
 		System.err.println("acc info = " + info);
 		if (info == null) {
 			return "IM_A_TEAPOT";
@@ -77,6 +92,17 @@ public class RESTController {
 			}
 		}
 	}
+	
+//	@CrossOrigin(origins = "*")
+//	@PostMapping("/tokensignin")
+//	public ResponseEntity<String> tokensignin(
+//			@RequestBody String body) {
+//		System.err.println(body);
+//		
+//		GoogleAPI.validateIDToken(body);
+//		
+//		return ResponseEntity.status(HttpStatus.OK).body("asdf");
+//	}
 	
 ////	@CrossOrigin(origins = "http://localhost:8080")
 	@CrossOrigin(origins = "*")

@@ -1,8 +1,8 @@
 
-let SERVER_URL = 'happyantsmmoserver.azurewebsites.net/';
-let SERVER_PROTOCOL = 'https://';
-// let SERVER_URL = 'localhost/';
-// let SERVER_PROTOCOL = 'http://';
+// let SERVER_URL = 'happyantsmmoserver.azurewebsites.net/';
+// let SERVER_PROTOCOL = 'https://';
+let SERVER_URL = 'localhost:7070/';
+let SERVER_PROTOCOL = 'http://';
 
 
 // get elements using id('<elementid>');
@@ -77,8 +77,8 @@ function makeSanitizedRequest(method, endpoint, params, body) {
             .then(result => result.replace(/[^a-z0-9\}\{\]\[\,\":\-]/gi, ''));
 }
 
-function requestAccountInfo(token) {
-    return makeSanitizedRequest("GET", 'account', 'token=' + token)
+function requestAccountInfo(id_token) {
+    return makeSanitizedRequest("GET", 'account', 'id_token=' + id_token)
             .then(result => (result.length==0 ? null : result));
 }
 

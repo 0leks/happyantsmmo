@@ -14,18 +14,18 @@ public class Accounts {
  * 			full AccountInfo if account exists
 	 */
 	public static AccountInfo getAccountInfo(String token) {
-		Optional<String> googleidOpt = GoogleAPI.getIdFromToken(token);
-		if (googleidOpt.isEmpty()) {
+		String googleid = GoogleAPI.getIDFromIDToken(token);
+		if (googleid == null) {
 			return null;
 		}
-		return DB.accountsDB.query(googleidOpt.get()).orElse(new AccountInfo(googleidOpt.get()));
+		return DB.accountsDB.query(googleid).orElse(new AccountInfo(googleid));
 	}
 	
 	public static boolean createAccount(String token, String handle) {
-		Optional<String> googleidOpt = GoogleAPI.getIdFromToken(token);
-		if (googleidOpt.isEmpty()) {
+		String googleid = GoogleAPI.getIDFromIDToken(token);
+		if (googleid == null) {
 			return false;
 		}
-		return DB.accountsDB.insert(googleidOpt.get(), handle);
+		return DB.accountsDB.insert(googleid, handle);
 	}
 }
