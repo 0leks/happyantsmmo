@@ -1,50 +1,34 @@
 
-// let SERVER_URL = 'happyantsmmoserver.azurewebsites.net/';
-// let SERVER_PROTOCOL = 'https://';
-let SERVER_URL = 'localhost:7070/';
-let SERVER_PROTOCOL = 'http://';
+let SERVER_URL = 'happyantsmmoserver.azurewebsites.net/';
+let SERVER_PROTOCOL = 'https://';
+let SERVER_WEBSOCKET_PROTOCOL = 'wss://';
+// let SERVER_URL = 'localhost:7070/';
+// let SERVER_PROTOCOL = 'http://';
+// let SERVER_WEBSOCKET_PROTOCOL = 'ws://';
 
 
 // get elements using id('<elementid>');
 let id = id => document.getElementById(id);
 
-function setCookie(name, value, expires_in) {
-    document.cookie = name + '=' + value + '; max-age=' + expires_in + '; path=/';
-}
-
-function clearCookie(name) {
-    document.cookie = name + '=; max-age=0; path=/';
-}
-
-function getCookie(c_name) {
-    if (document.cookie.length > 0) {
-        c_start = document.cookie.indexOf(c_name + "=");
-        if (c_start != -1) {
-            c_start = c_start + c_name.length + 1
-            c_end = document.cookie.indexOf(";", c_start)
-            if (c_end == -1) c_end = document.cookie.length
-            return document.cookie.substring(c_start, c_end);
-        }
+function getSessionToken() {
+    if ('session' in localStorage) {
+        return localStorage.session;
     }
-    return "";
+    return null;
 }
 
-function getAccessToken() {
-    let accountInfo = getCookie('signedin');
-    if (accountInfo == '') {
-        return null;
-    }
-    return getCookie(accountInfo);
+function setSessionToken(session) {
+    localStorage.session = session;
 }
 
 function signOut() {
     console.log("signing out");
+    delete localStorage.session;
+    delete localStorage.handle;
+}
 
-    let accountInfo = getAccessToken();
-    if (accountInfo) {
-        clearCookie(accountInfo);
-    }
-    clearCookie('signedin');
+function signedIn(accountInfo) {
+    localStorage.handle = accountInfo.handle;
 }
 
 function makeRequest(method, endpoint, params, body) {
@@ -82,9 +66,9 @@ function requestAccountInfo(id_token) {
             .then(result => (result.length==0 ? null : result));
 }
 
-function registerAccount(token, handle) {
+function registerAccount(sessionToken, handle) {
     console.log('POSTING account create');
-    return makeRequest('POST', 'account', 'token=' + token, handle);
+    return makeRequest('POST', 'account', 'sessionToken=' + sessionToken, handle);
 }
 
 function requestAllAccounts() {

@@ -36,26 +36,25 @@ public class RESTController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
 		
-		Session session = SessionManager.getSession(googleid);
-		
-		// TODO get account info if it exists and return it
+		Session session = SessionManager.getSessionByGoogleID(googleid);
 		AccountInfo account = Accounts.getAccountInfo(googleid);
 		if (account == null) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("DB error");
 		}
-		// if not exist, just return different message
-		
-		return ResponseEntity.status(HttpStatus.OK).body("asdf");
+		JSONObject result = new JSONObject();
+		result.put("session", session.sessionToken);
+		if (account.exists()) {
+			session.accountID = account.id;
+			// if account exists, return the handle
+			// TODO in future maybe return other info as well
+			result.put("account", account.toJSONObject());
+		}
+		return ResponseEntity.status(HttpStatus.OK).body(result.toString());
 	}
 	
-	
-////	@CrossOrigin(origins = "http://localhost:8080")
 	@CrossOrigin(origins = "*")
 	@GetMapping("/allaccounts")
 	public String allaccountsEndpoint(HttpServletRequest request) {
-		System.err.println("allaccountsEndpoint session id: " + request.getSession().getId());
-		System.err.println(request.getRemoteHost());
-		System.err.println(request.isSecure());
 		List<AccountInfo> accounts = DB.accountsDB.printAllAccounts();
 		
 		JSONObject jo = new JSONObject();
@@ -77,56 +76,74 @@ public class RESTController {
 		return jo.toString();
 	}
 	
-////	@CrossOrigin(origins = "http://localhost:8080")
 	@CrossOrigin(origins = "*")
 	@GetMapping("/account")
-	public String accountEndpoint(
-			@RequestParam("id_token") String id_token
+	public ResponseEntity<String> accountEndpoint(
+			@RequestParam("sessionToken") String sessionToken
 			) {
-		System.err.println("GET /ACCOUNT");
-//		String token = ctx.queryParam("token");
-		System.err.println("id_token = " + id_token);
-		AccountInfo info = Accounts.getAccountInfo(id_token);
-		System.err.println("acc info = " + info);
+		System.out.println("GET /ACCOUNT sessionToken = " + sessionToken);
+		Session session = SessionManager.getSessionBySessionToken(sessionToken);
+		if (session == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		System.out.println("account id: " + session.accountID);
+		AccountInfo info = Accounts.getAccountInfo(session.accountID);
 		if (info == null) {
-			return "IM_A_TEAPOT";
+			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
 		}
-		else {
-			System.err.println(info.googleid);
-			if (info.handle == null) {
-				return "";
-			}
-			else {
-				return info.handle;
-			}
-		}
+		System.out.println("acc info = " + info);
+		return ResponseEntity.status(HttpStatus.OK).body(info.toJSONObject().toString());
 	}
-	
-//	@CrossOrigin(origins = "*")
-//	@PostMapping("/tokensignin")
-//	public ResponseEntity<String> tokensignin(
-//			@RequestBody String body) {
-//		System.err.println(body);
-//		
-//		GoogleAPI.validateIDToken(body);
-//		
-//		return ResponseEntity.status(HttpStatus.OK).body("asdf");
-//	}
-	
-////	@CrossOrigin(origins = "http://localhost:8080")
+
+	@CrossOrigin(origins = "*")
+	@GetMapping("/deleteAccount")
+	public ResponseEntity<String> deleteAccount(
+			@RequestParam("sessionToken") String sessionToken
+			) {
+		System.out.println("POST /deleteAccount " + sessionToken);
+		Session session = SessionManager.getSessionBySessionToken(sessionToken);
+		if (session == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		if (session.accountID == -1) {
+			return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+		}
+		Accounts.deleteAccount(session.accountID);
+		SessionManager.terminateSession(session);
+		return ResponseEntity.status(HttpStatus.OK).build();
+	}
+
 	@CrossOrigin(origins = "*")
 	@PostMapping("/account")
 	public ResponseEntity<String> accountPostEndpoint(
-			@RequestParam("token") String token,
+			@RequestParam("sessionToken") String sessionToken,
 			@RequestBody String body
 			) {
-		System.err.println("try create acc " + body + ", " + token);
-		if (Accounts.createAccount(token, body)) {
+		System.out.println("POST /ACCOUNT " + body + ", " + sessionToken);
+		Session session = SessionManager.getSessionBySessionToken(sessionToken);
+		if (session == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		if (session.accountID != -1) {
+			return ResponseEntity.status(HttpStatus.CONFLICT).build();
+		}
+		if (Accounts.createAccount(session.googleID, body)) {
 			System.err.println("Created account " + body);
-			return ResponseEntity.status(HttpStatus.CREATED).body("success");
+			
+			AccountInfo info = Accounts.getAccountInfo(session.googleID);
+			if (info == null) {
+				return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("DB error");
+			}
+			else if (info.handle == null) {
+				return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to query created account");
+			}
+			else {
+				session.accountID = info.id;
+				return ResponseEntity.status(HttpStatus.CREATED).body(info.toJSONObject().toString());
+			}
 		}
 		else {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("fail");
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to create account.");
 		}
 	
 	}

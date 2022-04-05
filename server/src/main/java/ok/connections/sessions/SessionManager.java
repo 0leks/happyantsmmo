@@ -1,18 +1,28 @@
 package ok.connections.sessions;
 
-import java.util.Map;
+import java.util.*;
 
 public class SessionManager {
 	
 //	private Map<String, String> 
-	private static Map<String, Session> sessionTokenToSession;
-	private static Map<String, Session> googleidToSession;
+	private static Map<String, Session> sessionTokenToSession = new HashMap<>();
+	private static Map<String, Session> googleidToSession = new HashMap<>();
 	
-	public static Session getSession(String googleid) {
-		if (!googleidToSession.containsKey(googleid)) {
-			Session newSession = Session.createSession(googleid);
-			googleidToSession.put(googleid, newSession);
+	public static void terminateSession(Session session) {
+		sessionTokenToSession.remove(session.sessionToken);
+		googleidToSession.remove(session.googleID);
+	}
+
+	public static Session getSessionByGoogleID(String googleID) {
+		if (!googleidToSession.containsKey(googleID)) {
+			Session newSession = Session.createSession(googleID);
+			googleidToSession.put(googleID, newSession);
+			sessionTokenToSession.put(newSession.sessionToken, newSession);
 		}
-		return googleidToSession.get(googleid);
+		return googleidToSession.get(googleID);
+	}
+	
+	public static Session getSessionBySessionToken(String sessionToken) {
+		return sessionTokenToSession.get(sessionToken);
 	}
 }

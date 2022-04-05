@@ -67,7 +67,6 @@ public class DBUtil {
 			if (selectTableStatement == null) {
 				selectTableStatement = connection.prepareStatement(selectTableByName[driver.ordinal()]);
 			}
-			System.err.println(selectTableByName[driver.ordinal()]);
 			selectTableStatement.setString(1, tableName);
 			try (ResultSet rs = selectTableStatement.executeQuery()) {
 				while (rs.next()) {

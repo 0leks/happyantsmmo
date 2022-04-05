@@ -46,8 +46,12 @@ public class AccountsDB {
 		}
 		return accounts;
 	}
-	
-	public Optional<AccountInfo> query(int id) {
+
+	/**
+	 * @return AccountInfo on success, 
+	 * 			empty optional on nonexistant account
+	 */
+	public Optional<AccountInfo> query(int id) throws SQLException {
 		String query = "SELECT * FROM accounts "
 				+ "WHERE id=" + id;
 		try (Statement stmt = connection.createStatement();
@@ -65,8 +69,6 @@ public class AccountsDB {
 	}
 	
 	/**
-	 * 
-	 * @param googleid
 	 * @return AccountInfo on success, 
 	 * 			empty optional on nonexistant account
 	 */
@@ -91,6 +93,19 @@ public class AccountsDB {
 		try (PreparedStatement pstmt = connection.prepareStatement(INSERT)) {
 			pstmt.setString(1, googleid);
 			pstmt.setString(2, handle);
+			pstmt.executeUpdate();
+			return true;
+		} catch (SQLException e) {
+			System.out.println(e.getMessage());
+		}
+		return false;
+	}
+	
+	private static String DELETE = "DELETE FROM accounts WHERE id = ?";
+	public boolean delete(int accountID) {
+
+		try (PreparedStatement pstmt = connection.prepareStatement(DELETE)) {
+			pstmt.setInt(1, accountID);
 			pstmt.executeUpdate();
 			return true;
 		} catch (SQLException e) {

@@ -1,26 +1,47 @@
+let showSignInButton = true;
+let showSignOutButton = true;
+let showAccountInfo = true;
+
+function switchToSignedIn(handle) {
+    if (showSignInButton) {
+        id("sign-out").classList.remove('hidden');
+    }
+    if (showSignOutButton) {
+        id("sign-in").classList.add('hidden');
+    }
+    if (showAccountInfo) {
+        id("handle").innerHTML = handle;
+    }
+}
+
+function switchToSignedOut() {
+    if (showSignInButton) {
+        id("sign-out").classList.add('hidden');
+    }
+    if (showSignOutButton) {
+        id("sign-in").classList.remove('hidden');
+    }
+    if (showAccountInfo) {
+        id("handle").innerHTML = '';
+    }
+}
 
 function refreshPageStatus() {
-    console.log(document.cookie);
-    let accessToken = getAccessToken();
-    console.log(accessToken);
-    if (accessToken) {
-        id("sign-out").classList.remove('hidden');
-        id("sign-in").classList.add('hidden');
-        requestAccountInfo(accessToken).then(result => {
-            console.log(result);
-            if (result) {
-                id("handle").innerHTML = result;
-            }
-            else {
-                signOut();
-                refreshPageStatus();
-            }
-        });
+
+    console.log(localStorage);
+
+    if (getSessionToken() == null) {
+        switchToSignedOut();
     }
     else {
-        id("sign-out").classList.add('hidden');
-        id("sign-in").classList.remove('hidden');
-        id("handle").innerHTML = '';
+        if ('handle' in localStorage) {
+            switchToSignedIn(localStorage.handle);
+        }
+        else {
+            // session exists but account not created
+            // make it seem like not logged in
+            switchToSignedIn("ACCOUNT NOT CREATED");
+        }
     }
 }
 
@@ -31,7 +52,7 @@ $(function(){
         console.log("loaded header");
         id("sign-out").addEventListener("click", () => {
             signOut();
-            refreshPageStatus();
+            switchToSignedOut();
         });
         id("sign-in").addEventListener("click", () => document.location.href="/signin");
         refreshPageStatus();

@@ -24,11 +24,20 @@ public class Accounts {
 		}
 	}
 	
-	public static boolean createAccount(String token, String handle) {
-		String googleid = GoogleAPI.getIDFromIDToken(token);
-		if (googleid == null) {
-			return false;
+	public static AccountInfo getAccountInfo(int accountID) {
+		try {
+			return DB.accountsDB.query(accountID).orElse(null);
+		} catch (SQLException e) {
+			System.out.println(e.getMessage());
+			return null;
 		}
-		return DB.accountsDB.insert(googleid, handle);
+	}
+	
+	public static boolean createAccount(String googleID, String handle) {
+		return DB.accountsDB.insert(googleID, handle);
+	}
+	
+	public static boolean deleteAccount(int accountID) {
+		return DB.accountsDB.delete(accountID);
 	}
 }
