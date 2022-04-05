@@ -2,7 +2,7 @@
 let WORLD_SCALE = 10;
 let playerSpeed = 100*WORLD_SCALE;
 
-let wsurl = "ws://" + SERVER_URL + "coin";
+let wsurl = SERVER_WEBSOCKET_PROTOCOL + SERVER_URL + "coin";
 console.log("connecting to websocket at " + wsurl);
 let ws = new WebSocket(wsurl);
 ws.onmessage = receiveMessage;

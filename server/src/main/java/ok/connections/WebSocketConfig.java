@@ -23,7 +23,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
 		registry.addHandler(new SocketTextHandler(), "/coin")
 			.addInterceptors(intercept)
 			.setAllowedOriginPatterns("*");
-//			.setAllowedOrigins("http://localhost");
 	}
 
 }
