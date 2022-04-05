@@ -46,14 +46,14 @@ async function isHandleAvailable(potential) {
 async function onLoad() {
     params = parseURLParams(window.location.href);
 
-    const accessToken = params['access_token'];
+    const id_token = params['id_token'];
     const expiresIn = params['expires_in'];
 
     setCookie('signedin', 'googletoken', expiresIn);
-    setCookie('googletoken', accessToken, expiresIn);
+    setCookie('googletoken', id_token, expiresIn);
 
     console.log('signedin = ' + getCookie('signedin'));
-    console.log('token = ' + getCookie('googletoken'));
+    console.log('id_token = ' + getCookie('googletoken'));
 
     populateAccountInfo();
     // TODO show server error here

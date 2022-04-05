@@ -2,6 +2,8 @@ package ok.accounts;
 
 import java.beans.JavaBean;
 
+import org.json.JSONObject;
+
 @JavaBean
 public class AccountInfo {
 	
@@ -17,6 +19,10 @@ public class AccountInfo {
 
 	public AccountInfo(String googleid) {
 		this.googleid = googleid;
+	}
+	
+	public boolean exists() {
+		return handle != null;
 	}
 
 	public int getId() {
@@ -38,6 +44,10 @@ public class AccountInfo {
 	@Override
 	public String toString() {
 		return id + "," + googleid + "," + handle;
+	}
+	
+	public JSONObject toJSONObject() {
+		return new JSONObject().put("handle", handle);
 	}
 }
 

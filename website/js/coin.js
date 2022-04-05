@@ -2,16 +2,14 @@
 let WORLD_SCALE = 10;
 let playerSpeed = 100*WORLD_SCALE;
 
-let wsurl = "wss://" + SERVER_URL + "coin";
+let wsurl = "ws://" + SERVER_URL + "coin";
 console.log("connecting to websocket at " + wsurl);
 let ws = new WebSocket(wsurl);
 ws.onmessage = receiveMessage;
 ws.onclose = disconnected;
 ws.onopen = sendHello;
 
-
-const accessToken = getAccessToken();
-if (accessToken == null) {
+ if (getSessionToken() == null) {
     document.location.href = "/";
 }
 
@@ -23,7 +21,7 @@ function disconnected() {
 function sendHello() {
     let jsonData = {
         'type': 'HELLO',
-        'token': accessToken
+        'session': getSessionToken()
     };
     let tosend = JSON.stringify(jsonData);
     console.log('sending ' + tosend);
