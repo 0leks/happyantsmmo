@@ -5,11 +5,13 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import org.json.*;
+import org.springframework.http.*;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
 import ok.accounts.*;
 import ok.connections.*;
+import ok.connections.sessions.*;
 import ok.games.math.*;
 //import io.javalin.websocket.*;
 
@@ -109,9 +111,10 @@ public class CoinGame {
 		state.persist();
 	}
 	
-	private void newConnection(WebSocketSession ctx, String token) {
-		AccountInfo info = Accounts.getAccountInfo(token);
-		if (info == null || info.handle == null || stopGame) {
+	private void newConnection(WebSocketSession ctx, String sessionToken) {
+		Session session = SessionManager.getSessionBySessionToken(sessionToken);
+//		session.
+		if (session == null || !session.isValidAccount() || stopGame) {
 			try {
 				ctx.close();
 			} catch (IOException e) {
@@ -119,6 +122,24 @@ public class CoinGame {
 			}
 			return;
 		}
+		AccountInfo info = Accounts.getAccountInfo(session.accountID);
+		if (info == null) {
+			try {
+				ctx.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			return;
+		}
+//		AccountInfo info = Accounts.getAccountInfo(token);
+//		if (info == null || info.handle == null || stopGame) {
+//			try {
+//				ctx.close();
+//			} catch (IOException e) {
+//				e.printStackTrace();
+//			}
+//			return;
+//		}
 		
 		// if new connection with an id that matches existing connection, 
 		// block it and send message indicating that account is already logged in.
@@ -140,6 +161,7 @@ public class CoinGame {
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
+				return;
 			}
 		}
 		
@@ -185,7 +207,7 @@ public class CoinGame {
 		
 		switch(type) {
 		case HELLO:
-			newConnection(ctx, obj.getString("token"));
+			newConnection(ctx, obj.getString("session"));
 			break;
 			
 		case MOVE:

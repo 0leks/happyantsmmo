@@ -1,31 +1,43 @@
 package ok.accounts;
 
-import java.util.*;
-
 import ok.external.*;
+
+import java.sql.SQLException;
+import java.util.Optional;
+
 import ok.database.DB;
 
 public class Accounts {
 	
 	/**
 	 * @param token
-	 * @return null if google api call fails
+	 * @return null if DB error
  * 			AccountInfo with only googleid if api succeeds but account does not yet exist
  * 			full AccountInfo if account exists
 	 */
-	public static AccountInfo getAccountInfo(String token) {
-		Optional<String> googleidOpt = GoogleAPI.getIdFromToken(token);
-		if (googleidOpt.isEmpty()) {
+	public static AccountInfo getAccountInfo(String googleid) {
+		try {
+			return DB.accountsDB.query(googleid).orElse(new AccountInfo(googleid));
+		} catch (SQLException e) {
+			System.out.println(e.getMessage());
 			return null;
 		}
-		return DB.accountsDB.query(googleidOpt.get()).orElse(new AccountInfo(googleidOpt.get()));
 	}
 	
-	public static boolean createAccount(String token, String handle) {
-		Optional<String> googleidOpt = GoogleAPI.getIdFromToken(token);
-		if (googleidOpt.isEmpty()) {
-			return false;
+	public static AccountInfo getAccountInfo(int accountID) {
+		try {
+			return DB.accountsDB.query(accountID).orElse(null);
+		} catch (SQLException e) {
+			System.out.println(e.getMessage());
+			return null;
 		}
-		return DB.accountsDB.insert(googleidOpt.get(), handle);
+	}
+	
+	public static boolean createAccount(String googleID, String handle) {
+		return DB.accountsDB.insert(googleID, handle);
+	}
+	
+	public static boolean deleteAccount(int accountID) {
+		return DB.accountsDB.delete(accountID);
 	}
 }

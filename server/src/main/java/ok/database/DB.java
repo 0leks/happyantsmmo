@@ -32,13 +32,16 @@ public class DB {
 			try {
 				System.err.println(url);
 				connection = DriverManager.getConnection(url);
-				if (connection != null) {
-					DatabaseMetaData meta = connection.getMetaData();
-					System.err.println("The driver name is " + meta.getDriverName());
-					debug += "The driver name is " + meta.getDriverName() + "\n";
+				if (connection == null) {
+					System.err.println("connection is null");
+					debug += "connection is null\n";
 				}
 				
-				DBUtil.setConnection(connection);
+				DatabaseMetaData meta = connection.getMetaData();
+				System.err.println("The driver name is " + meta.getDriverName());
+				debug += "The driver name is " + meta.getDriverName() + "\n";
+				
+				DBUtil.setConnection(connection, connection.getMetaData().getDriverName());
 				
 				accountsDB = new AccountsDB(connection);
 				coinsDB = new CoinDB(connection);
