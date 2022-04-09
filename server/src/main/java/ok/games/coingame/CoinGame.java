@@ -14,6 +14,7 @@ import ok.connections.*;
 import ok.connections.sessions.*;
 import ok.games.math.*;
 //import io.javalin.websocket.*;
+import ok.util.Util;
 
 import static ok.util.Util.currentTime;
 
@@ -276,6 +277,13 @@ public class CoinGame {
 		}
 	}
 	
+	private void addCoin() {
+		int x = (int)(Util.gaussian() * 20000 - 10000);
+		int y = (int)(Util.gaussian() * 20000 - 10000);
+		int value = (int)(Math.abs(Util.gaussian() - 0.5) * 9) + 1;
+		state.addNewCoin(x, y, value);
+	}
+	
 	private void gameFunction() {
 		try {
 			long timeToNextCoin = currentTime();
@@ -284,8 +292,8 @@ public class CoinGame {
 				movePlayers();
 				checkCoinCollect();
 				
-				if (currentTime() - timeToNextCoin >= 0 && state.getCoins().size() < 200) {
-					state.addNewCoin((int)(Math.random()*20000) - 10000, (int)(Math.random()*20000) - 10000);
+				if (currentTime() - timeToNextCoin >= 0 && state.getCoins().size() < 3000) {
+					addCoin();
 					timeToNextCoin = currentTime() + TICK_TIME;
 					timeToNextCoin += Math.max(0, 20000 - TICK_TIME*contextToPlayerInfoMap.size());
 				}
@@ -352,7 +360,7 @@ public class CoinGame {
 						coinsArray.put(new JSONObject(coin));
 						alreadySharedCoins.add(coin.id);
 						
-						if (coinsArray.length() > 200) {
+						if (coinsArray.length() > 1000) {
 							break;
 						}
 					}

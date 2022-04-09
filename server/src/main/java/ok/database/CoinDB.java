@@ -12,7 +12,7 @@ public class CoinDB {
 
 	private Connection connection;
 
-	private static final String createtable = 
+	private static final String createPlayersTable = 
 			"CREATE TABLE IF NOT EXISTS " + PLAYERS_TABLE + " (\n"
 			+ "	id SERIAL PRIMARY KEY,\n"
 			+ "	numcoins integer NOT NULL DEFAULT 0,\n"
@@ -20,12 +20,15 @@ public class CoinDB {
 			+ "	y integer NOT NULL DEFAULT 0\n"
 			+ ");";
 	
-	private static final String createtable2 = 
+	private static final String createCoinsTable = 
 			"CREATE TABLE IF NOT EXISTS " + COINS_TABLE + " (\n"
 			+ "	id SERIAL PRIMARY KEY,\n"
 			+ "	x integer NOT NULL DEFAULT 0,\n"
-			+ "	y integer NOT NULL DEFAULT 0\n"
+			+ "	y integer NOT NULL DEFAULT 0,\n"
+			+ " value integer NOT NULL DEFAULT 1\n"
 			+ ");";
+	private static final String createCoinsTable_addValueCol = 
+			"ALTER TABLE " + COINS_TABLE + " ADD value integer NOT NULL DEFAULT 1;";
 	
 	private static final String getPlayerInfo = 
 			"SELECT * FROM " + PLAYERS_TABLE + " WHERE id=?";
@@ -59,9 +62,9 @@ public class CoinDB {
 			"DELETE FROM " + COINS_TABLE + " WHERE id=?";
 	private PreparedStatement deleteCoinStatement;
 	
-	private static final String incrementNumcoins =
-			"UPDATE " + PLAYERS_TABLE + " SET numcoins=numcoins+1 WHERE id=?";
-	private PreparedStatement incrementNumcoinsStatement;
+//	private static final String incrementNumcoins =
+//			"UPDATE " + PLAYERS_TABLE + " SET numcoins=numcoins+1 WHERE id=?";
+//	private PreparedStatement incrementNumcoinsStatement;
 
 	public CoinDB(Connection connection) {
 		this.connection = connection;
@@ -75,7 +78,7 @@ public class CoinDB {
 			getCoinsStatement = connection.prepareStatement(getCoins);
 			getCoinsInRangeStatement = connection.prepareStatement(getCoinsInRange);
 			deleteCoinStatement = connection.prepareStatement(deleteCoin);
-			incrementNumcoinsStatement = connection.prepareStatement(incrementNumcoins);
+//			incrementNumcoinsStatement = connection.prepareStatement(incrementNumcoins);
 			getCoinStatement = connection.prepareStatement(getCoin);
 		}
 		catch (Exception e) {
@@ -86,19 +89,19 @@ public class CoinDB {
 
 	public void createCoinGameTables() {
 		try (Statement stmt = connection.createStatement()) {
-			stmt.execute(createtable);
+			stmt.execute(createPlayersTable);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 		
-		
 		try (Statement stmt = connection.createStatement()) {
-			stmt.execute(createtable2);
+			stmt.execute(createCoinsTable);
+//			stmt.execute(createCoinsTable_addValueCol);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	public PlayerInfo getPlayerInfo(int id) {
 		try {
 			getPlayerInfoStatement.setInt(1, id);
@@ -159,7 +162,8 @@ public class CoinDB {
 					return new Coin(
 							rs.getInt("id"),
 							rs.getInt("x"),
-							rs.getInt("y"));
+							rs.getInt("y"),
+							rs.getInt("value"));
 				}
 			}
 		} catch (SQLException e) {
@@ -176,7 +180,8 @@ public class CoinDB {
 					list.add(new Coin(
 							rs.getInt("id"),
 							rs.getInt("x"),
-							rs.getInt("y")));
+							rs.getInt("y"),
+							rs.getInt("value")));
 				}
 			}
 		} catch (SQLException e) {
@@ -197,7 +202,8 @@ public class CoinDB {
 					list.add(new Coin(
 							rs.getInt("id"),
 							rs.getInt("x"),
-							rs.getInt("y")));
+							rs.getInt("y"),
+							rs.getInt("value")));
 				}
 			}
 		} catch (SQLException e) {
@@ -215,31 +221,31 @@ public class CoinDB {
 		}
 	}
 	
-	public void collected(int playerid, int coinid) {
-		
-		try {
-			connection.setAutoCommit(false);
-			deleteCoinStatement.setInt(1, coinid);
-			deleteCoinStatement.execute();
-			
-			incrementNumcoinsStatement.setInt(1, playerid);
-			incrementNumcoinsStatement.execute();
-		} catch (SQLException e) {
-			try {
-				connection.rollback();
-			} catch (SQLException e1) {
-				e1.printStackTrace();
-			}
-			e.printStackTrace();
-		}
-		finally {
-			try {
-				connection.commit();
-				connection.setAutoCommit(true);
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
-		}
-		
-	}
+//	public void collected(int playerid, int coinid) {
+//		
+//		try {
+//			connection.setAutoCommit(false);
+//			deleteCoinStatement.setInt(1, coinid);
+//			deleteCoinStatement.execute();
+//			
+//			incrementNumcoinsStatement.setInt(1, playerid);
+//			incrementNumcoinsStatement.execute();
+//		} catch (SQLException e) {
+//			try {
+//				connection.rollback();
+//			} catch (SQLException e1) {
+//				e1.printStackTrace();
+//			}
+//			e.printStackTrace();
+//		}
+//		finally {
+//			try {
+//				connection.commit();
+//				connection.setAutoCommit(true);
+//			} catch (SQLException e) {
+//				e.printStackTrace();
+//			}
+//		}
+//		
+//	}
 }
