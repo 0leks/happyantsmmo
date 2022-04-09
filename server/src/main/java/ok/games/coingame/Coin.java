@@ -9,14 +9,16 @@ public class Coin {
 	public int id;
 	public int x;
 	public int y;
-	public Coin(int id, int x, int y) {
+	public int value;
+	public Coin(int id, int x, int y, int value) {
 		this.id = id;
 		this.x = x;
 		this.y = y;
+		this.value = value;
 	}
 	
-	public static Coin makeCoin(int x, int y) {
-		return new Coin(idcounter++, x, y);
+	public static Coin makeCoin(int x, int y, int value) {
+		return new Coin(idcounter++, x, y, value);
 	}
 	
 	public int getId() {
@@ -36,5 +38,12 @@ public class Coin {
 	}
 	public void setY(int y) {
 		this.y = y;
+	}
+	
+	public int getValue() {
+		return value;
+	}
+	public void setValue() {
+		this.value = value;
 	}
 }
