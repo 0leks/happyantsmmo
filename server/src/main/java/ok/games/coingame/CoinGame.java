@@ -32,12 +32,13 @@ public class CoinGame {
 	private Map<WebSocketSession, AccountInfo> contextToAccountInfoMap = new HashMap<>();
 	private Map<PlayerInfo, Vec3> playerTargetLocations = new HashMap<>();
 
+	private ConcurrentLinkedQueue<AccountInfo> newConnectionNotification = new ConcurrentLinkedQueue<>();
+	
 	/**
 	 * if null, need to share all coins
 	 * if has a hashmap, then cointains list of coin ids that have been shared
 	 */
 	private Map<WebSocketSession, Set<Integer>> contextToCoinsShared = new HashMap<>();	
-	
 	private ConcurrentLinkedQueue<Coin> deletedCoins = new ConcurrentLinkedQueue<>();
 
 	
@@ -69,9 +70,10 @@ public class CoinGame {
 	}
 	
 	private void stopGame(WebSocketSession ctx) {
+		PlayerInfo info = contextToPlayerInfoMap.get(ctx);
+		System.out.println(info + " tried to stop game");
 		// only admin account can stop the game
-		System.out.println(contextToPlayerInfoMap.get(ctx) + " tried to stop game");
-		if (contextToPlayerInfoMap.get(ctx).id != 1) {
+		if (info == null || info.id != 1) {
 			return;
 		}
 		
@@ -113,42 +115,25 @@ public class CoinGame {
 	
 	private void newConnection(WebSocketSession ctx, String sessionToken) {
 		Session session = SessionManager.getSessionBySessionToken(sessionToken);
-//		session.
-		if (session == null || !session.isValidAccount() || stopGame) {
-			try {
-				ctx.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		if (session == null || !session.isValidAccount()) {
+			sendBye(ctx);
+			return;
+		}
+		if (stopGame) {
+			sendBye(ctx);
 			return;
 		}
 		AccountInfo info = Accounts.getAccountInfo(session.accountID);
-		if (info == null) {
-			try {
-				ctx.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		if (info == null || info.handle == null) {
+			sendBye(ctx);
 			return;
 		}
-//		AccountInfo info = Accounts.getAccountInfo(token);
-//		if (info == null || info.handle == null || stopGame) {
-//			try {
-//				ctx.close();
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
-//			return;
-//		}
 		
 		// if new connection with an id that matches existing connection, 
 		// block it and send message indicating that account is already logged in.
 		if (idToContextMap.containsKey(info.id)) {
-			try {
-				ctx.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			sendBye(ctx);
+			return;
 		}
 		
 		PlayerInfo playerInfo = state.getPlayerInfo(info.id);
@@ -156,11 +141,7 @@ public class CoinGame {
 			playerInfo = state.createNewPlayer(info.id);
 			if (playerInfo == null) {
 				// failed to create new player info.
-				try {
-					ctx.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+				sendBye(ctx);
 				return;
 			}
 		}
@@ -180,20 +161,25 @@ public class CoinGame {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		newConnectionNotification.add(info);
+		shareAllPlayerMappingWith(ctx);
 	}
-	
-	
 	
 	public void closedConnection(WebSocketSession ctx) {
 		AccountInfo info = contextToAccountInfoMap.get(ctx);
-		idToContextMap.remove(info.id);
 		contextToAccountInfoMap.remove(ctx);
 		contextToPlayerInfoMap.remove(ctx);
-		System.err.println(info.handle + " disconnected");
+		if (info != null) {
+			idToContextMap.remove(info.id);
+			System.err.println(info.handle + " disconnected");
+		}
 	}
 	
 	public void receiveMove(WebSocketSession ctx, int x, int y) {
 		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
+		if (player == null) {
+			return;
+		}
 		movePlayer(player);
 		playerTargetLocations.put(player, new Vec3(x, y, currentTime()));
 		changedLocations.add(player.id);
@@ -394,6 +380,41 @@ public class CoinGame {
 				}
 			}
 		}
+		
+		if (!newConnectionNotification.isEmpty()) {
+			JSONObject playerMapping = new JSONObject();
+			while (!newConnectionNotification.isEmpty()) {
+				AccountInfo accountInfo = newConnectionNotification.remove();
+				playerMapping.put("" + accountInfo.id, accountInfo.handle);
+			}
+			playerMapping.put("type", MessageType.MAPPING);
+			sendToAll(playerMapping.toString());
+		}
+	}
+	
+	private void sendToAll(String message) {
+		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
+			if (ctx.isOpen()) {
+				try {
+					ctx.sendMessage(new TextMessage(message));
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+	
+	private void shareAllPlayerMappingWith(WebSocketSession ctx) {
+		JSONObject playerMapping = new JSONObject();
+		for (AccountInfo accountInfo : contextToAccountInfoMap.values()) {
+			playerMapping.put("" + accountInfo.id, accountInfo.handle);
+		}
+		playerMapping.put("type", MessageType.MAPPING);
+		try {
+			ctx.sendMessage(new TextMessage(playerMapping.toString()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	private void databaseSaveFunction() {
@@ -409,6 +430,15 @@ public class CoinGame {
 		}
 		System.err.println("finished databaseSaveFunction");
 	
+	}
+	
+	private void sendBye(WebSocketSession ctx) {
+		try {
+			JSONObject obj = new JSONObject().put("type", MessageType.BYE);
+			ctx.sendMessage(new TextMessage(obj.toString()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	@Override

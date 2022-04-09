@@ -1,5 +1,5 @@
 package ok.connections;
 
 public enum MessageType {
-	HELLO, MOVE, STOP;
+	HELLO, MOVE, STOP, MAPPING, BYE;
 }
