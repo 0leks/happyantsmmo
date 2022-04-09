@@ -56,4 +56,3 @@ function renderGoogleButton() {
         'onfailure': onFailure
     });
 }
-
