@@ -1,7 +1,7 @@
 package ok.games.coingame;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 
 import ok.database.DB;
 import ok.games.math.Vec2;
@@ -10,7 +10,8 @@ public class CoinGameState {
 
 	private Map<Integer, Coin> loadedCoins = new ConcurrentHashMap<>();
 	private Map<Integer, PlayerInfo> loadedPlayerInfo = new ConcurrentHashMap<>();
-	private Map<Integer, Coin> collectedCoins = new ConcurrentHashMap<>();
+	private ConcurrentLinkedQueue<Coin> collectedCoins = new ConcurrentLinkedQueue<>();
+	private ConcurrentLinkedQueue<Coin> newCoins = new ConcurrentLinkedQueue<>();
 	
 	private int maxCoinID;
 	private boolean autoWrite;
@@ -28,15 +29,22 @@ public class CoinGameState {
 		for (PlayerInfo player : loadedPlayerInfo.values()) {
 			DB.coinsDB.updatePlayerInfo(player);
 		}
-		for (Coin coin : loadedCoins.values()) {
-			DB.coinsDB.insertCoin(coin);
-		}
-		System.out.println("Saved " + collectedCoins.size() + " collected coins to DB");
-		for(Integer coinid : collectedCoins.keySet()) {
-			DB.coinsDB.deleteCoin(collectedCoins.remove(coinid));
-		}
 		System.out.println("Saved " + loadedPlayerInfo.size() + " players to DB");
-		System.out.println("Saved " + loadedCoins.size() + " coins to DB");
+		int newCoinsCount = 0;
+		while (!newCoins.isEmpty()) {
+			Coin coin = newCoins.remove();
+			DB.coinsDB.insertCoin(coin);
+			++newCoinsCount;
+		}
+		System.out.println("Saved " + newCoinsCount + " new coins to DB");
+		
+		int removedCoinsCount = 0;
+		while (!collectedCoins.isEmpty()) {
+			Coin coin = collectedCoins.remove();
+			DB.coinsDB.deleteCoin(coin);
+			++removedCoinsCount;
+		}
+		System.out.println("Saved " + removedCoinsCount + " removed coins to DB");
 	}
 	
 	public PlayerInfo getPlayerInfo(int id) {
@@ -67,9 +75,10 @@ public class CoinGameState {
 		}
 	}
 	
-	public void addNewCoin(int x, int y) {
-		Coin newcoin = new Coin(++maxCoinID, x, y);
+	public void addNewCoin(int x, int y, int value) {
+		Coin newcoin = new Coin(++maxCoinID, x, y, value);
 		loadedCoins.put(newcoin.id, newcoin);
+		newCoins.add(newcoin);
 		if (autoWrite) {
 			DB.coinsDB.insertCoin(newcoin);
 		}
@@ -92,12 +101,12 @@ public class CoinGameState {
 	
 	public void playerCollectsCoin(PlayerInfo player, Coin coin) {
 		loadedCoins.remove(coin.id);
-		collectedCoins.put(coin.id, coin);
-		player.numcoins++;
+		collectedCoins.add(coin);
+		player.numcoins += coin.value;
 		updatePlayerLocation(player);
 		
 		if (autoWrite) {
-			DB.coinsDB.collected(player.id, coin.id);
+			DB.coinsDB.deleteCoin(coin);
 		}
 	}
 }

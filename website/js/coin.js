@@ -104,6 +104,7 @@ function receiveMessage(msg) {
                 updatePlayerInfo(id, 'handle', handle);
             }
         }
+        console.log(playerInfos);
     }
     else if (data.type == 'MOVE') {
         if ('players' in data) {
@@ -138,9 +139,16 @@ function receiveMessage(msg) {
                 // console.log(coin);
                 if ('delete' in coin) {
                     delete coinPositions[coin.id];
+                    delete coinValues[coin.id];
                 }
                 else {
                     coinPositions[coin.id] = [coin.x, coin.y];
+                    if ('value' in coin) {
+                        coinValues[coin.id] = coin.value;
+                    }
+                    else {
+                        coinValues[coin.id] = '1';
+                    }
                 }
             });
         }
@@ -149,9 +157,11 @@ function receiveMessage(msg) {
 }
 function playersDisconnected(ids) {
     ids.forEach(id => {
-        delete playerInfos[id];
-        delete playerPositions[id];
-        delete playerTargetPositions[id];
+        if (id != myID) {
+            delete playerInfos[id];
+            delete playerPositions[id];
+            delete playerTargetPositions[id];
+        }
     });
 }
 
@@ -178,6 +188,7 @@ let playerTargetPositions = {};
 let playerInfos = {};
 let COIN_SIZE = 200;
 let coinPositions = {};
+let coinValues = {};
 
 // Rendering data shared with the
 // scalers.
@@ -453,7 +464,7 @@ function animateScene() {
 
     textContext.font = '160px serif';
     for (const [id, coinPos] of Object.entries(coinPositions)) {
-        textContext.fillText('1', coinPos[0], -coinPos[1]);
+        textContext.fillText(coinValues[id], coinPos[0], -coinPos[1]);
     }
     textContext.font = '240px serif';
     for (const [id, playerinfo] of Object.entries(playerInfos)) {
