@@ -26,6 +26,12 @@ function switchToSignedOut() {
     }
 }
 
+function switchToShowNeither() {
+    id("sign-out").classList.add('hidden');
+    id("sign-in").classList.add('hidden');
+    id("handle").innerHTML = '';
+}
+
 function refreshPageStatus() {
 
     console.log(localStorage);
@@ -56,5 +62,8 @@ $(function(){
         });
         id("sign-in").addEventListener("click", () => document.location.href="/signin");
         refreshPageStatus();
+        if (document.location.href.endsWith('/signin/')) {
+            switchToShowNeither();
+        }
     });
 });
