@@ -9,7 +9,7 @@ ws.onmessage = receiveMessage;
 ws.onclose = disconnected;
 ws.onopen = sendHello;
 
- if (getSessionToken() == null) {
+if (getSessionToken() == null) {
     document.location.href = "/";
 }
 
@@ -83,9 +83,27 @@ function receiveMessage(msg) {
         myID = data.id;
         status += myID;
     }
+    else if (data.type == 'BYE') {
+        console.log(data);
+        signOut();
+        alert(data.message);
+        document.location.href = "/";
+    }
+    else if (data.type == 'DC') {
+        console.log(data);
+        playersDisconnected(data.ids);
+    }
     else if (data.type == 'STOP') {
         console.log(data);
         alert(data.message);
+    }
+    else if (data.type == 'MAPPING') {
+        console.log(data);
+        for (const [id, handle] of Object.entries(data)) {
+            if (id != 'MAPPING') {
+                updatePlayerInfo(id, 'handle', handle);
+            }
+        }
     }
     else if (data.type == 'MOVE') {
         if ('players' in data) {
@@ -93,7 +111,9 @@ function receiveMessage(msg) {
             // console.log(data.players);
             data.players.forEach(player => {
                 playerPositions[player.id] = [player.x, player.y];
-                playerInfos[player.id] = player;
+                updatePlayerInfo(player.id, 'id', player.id);
+                updatePlayerInfo(player.id, 'numcoins', player.numcoins);
+
 
                 if ('target' in player) {
                     if (player.id == myID && playerTargetPositions[myID]) {
@@ -126,6 +146,13 @@ function receiveMessage(msg) {
         }
     }
     console.log(status);
+}
+function playersDisconnected(ids) {
+    ids.forEach(id => {
+        delete playerInfos[id];
+        delete playerPositions[id];
+        delete playerTargetPositions[id];
+    });
 }
 
 let gl = null;
@@ -166,6 +193,27 @@ let previousTime = 0.0;
 let degreesPerSecond = 90.0;
 
 window.addEventListener("load", startup, false);
+
+function updatePlayerInfo(id, key, value) {
+    if (!(id in playerInfos)) {
+        playerInfos[id] = {};
+    }
+    playerInfos[id][key] = value;
+}
+
+function getPlayerInfo(id, key) {
+    if (id in playerInfos) {
+        if (key in playerInfos[id]) {
+            return playerInfos[id][key];
+        }
+        else {
+            return 'null';
+        }
+    }
+    else {
+        return 'player not found';
+    }
+}
 
 function getMyPosition(playerid) {
     if (playerid in playerPositions) {
@@ -409,8 +457,11 @@ function animateScene() {
     }
     textContext.font = '240px serif';
     for (const [id, playerinfo] of Object.entries(playerInfos)) {
-        textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
-        textContext.fillText('' + playerinfo.numcoins, playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
+        if (id in playerPositions) {
+            // textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
+            textContext.fillText(getPlayerInfo(id, 'handle'), playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
+            textContext.fillText('' + getPlayerInfo(id, 'numcoins'), playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
+        }
     }
     textContext.restore();
 
