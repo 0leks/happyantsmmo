@@ -86,7 +86,12 @@ function receiveMessage(msg) {
     else if (data.type == 'BYE') {
         console.log(data);
         signOut();
+        alert(data.message);
         document.location.href = "/";
+    }
+    else if (data.type == 'DC') {
+        console.log(data);
+        playersDisconnected(data.ids);
     }
     else if (data.type == 'STOP') {
         console.log(data);
@@ -141,6 +146,13 @@ function receiveMessage(msg) {
         }
     }
     console.log(status);
+}
+function playersDisconnected(ids) {
+    ids.forEach(id => {
+        delete playerInfos[id];
+        delete playerPositions[id];
+        delete playerTargetPositions[id];
+    });
 }
 
 let gl = null;

@@ -33,6 +33,7 @@ public class CoinGame {
 	private Map<PlayerInfo, Vec3> playerTargetLocations = new HashMap<>();
 
 	private ConcurrentLinkedQueue<AccountInfo> newConnectionNotification = new ConcurrentLinkedQueue<>();
+	private ConcurrentLinkedQueue<AccountInfo> endedConnectionNotification = new ConcurrentLinkedQueue<>();
 	
 	/**
 	 * if null, need to share all coins
@@ -116,23 +117,23 @@ public class CoinGame {
 	private void newConnection(WebSocketSession ctx, String sessionToken) {
 		Session session = SessionManager.getSessionBySessionToken(sessionToken);
 		if (session == null || !session.isValidAccount()) {
-			sendBye(ctx);
+			sendBye(ctx, "Invalid session");
 			return;
 		}
 		if (stopGame) {
-			sendBye(ctx);
+			sendBye(ctx, "Server stopped for maintenance");
 			return;
 		}
 		AccountInfo info = Accounts.getAccountInfo(session.accountID);
 		if (info == null || info.handle == null) {
-			sendBye(ctx);
+			sendBye(ctx, "Couldn't find account info");
 			return;
 		}
 		
 		// if new connection with an id that matches existing connection, 
 		// block it and send message indicating that account is already logged in.
 		if (idToContextMap.containsKey(info.id)) {
-			sendBye(ctx);
+			sendBye(ctx, "This account is already connected on another session.");
 			return;
 		}
 		
@@ -140,8 +141,7 @@ public class CoinGame {
 		if (playerInfo == null) {
 			playerInfo = state.createNewPlayer(info.id);
 			if (playerInfo == null) {
-				// failed to create new player info.
-				sendBye(ctx);
+				sendBye(ctx, "Failed to create new player info");
 				return;
 			}
 		}
@@ -166,12 +166,12 @@ public class CoinGame {
 	}
 	
 	public void closedConnection(WebSocketSession ctx) {
-		AccountInfo info = contextToAccountInfoMap.get(ctx);
-		contextToAccountInfoMap.remove(ctx);
+		AccountInfo info = contextToAccountInfoMap.remove(ctx);
 		contextToPlayerInfoMap.remove(ctx);
 		if (info != null) {
 			idToContextMap.remove(info.id);
 			System.err.println(info.handle + " disconnected");
+			endedConnectionNotification.add(info);
 		}
 	}
 	
@@ -390,6 +390,19 @@ public class CoinGame {
 			playerMapping.put("type", MessageType.MAPPING);
 			sendToAll(playerMapping.toString());
 		}
+
+		
+		if (!endedConnectionNotification.isEmpty()) {
+			JSONArray disconnected = new JSONArray();
+			while (!endedConnectionNotification.isEmpty()) {
+				AccountInfo accountInfo = endedConnectionNotification.remove();
+				disconnected.put(accountInfo.id);
+			}
+			JSONObject obj = new JSONObject()
+					.put("type", MessageType.DC)
+					.put("ids", disconnected);
+			sendToAll(obj.toString());
+		}
 	}
 	
 	private void sendToAll(String message) {
@@ -432,9 +445,11 @@ public class CoinGame {
 	
 	}
 	
-	private void sendBye(WebSocketSession ctx) {
+	private void sendBye(WebSocketSession ctx, String message) {
 		try {
-			JSONObject obj = new JSONObject().put("type", MessageType.BYE);
+			JSONObject obj = new JSONObject()
+					.put("type", MessageType.BYE)
+					.put("message", message);
 			ctx.sendMessage(new TextMessage(obj.toString()));
 		} catch (IOException e) {
 			e.printStackTrace();
