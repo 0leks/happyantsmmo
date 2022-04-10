@@ -9,4 +9,14 @@ public class Util {
 	public static final double gaussian() {
 		return (Math.random() + Math.random() + Math.random() + Math.random()) / 4;
 	}
+	
+	public static final double reverseGaussian() {
+		double g = gaussian();
+		if (g < 0.5) {
+			return 0.5 - g;
+		}
+		else {
+			return 1.5 - g;
+		}
+	}
 }
