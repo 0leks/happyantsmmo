@@ -24,7 +24,7 @@ public class HealthController {
 	public String health() {
 		return "<html>\n<header><title>Health</title>" + style + "</header>\n<body>\n"
 				+ makeH1("HAMMO Health Page")
-				+ makeH2("Database String: " + DB.getConnectionString())
+//				+ makeH2("Database String: " + DB.getConnectionString())
 				+ makeH2("DB Connected: " + DB.isConnected())
 				+ makeH2("Tables: " + String.join(", ", DBUtil.getTables()))
 				+ makeH2("debug: " + DB.debug)

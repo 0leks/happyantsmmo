@@ -17,3 +17,23 @@ body {
     z-index: 10;
 }
 
+#controls
+{
+    pointer-events: none;
+    right: 0;
+    top: 0;
+    position: absolute;
+    height: 100%;
+    z-index: 20;
+
+    padding: 1em;
+
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+
+    button {
+        pointer-events: auto;
+        padding: 1em;
+    }
+}

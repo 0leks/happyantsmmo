@@ -45,7 +45,12 @@
         <canvas id="glcanvas">
         Oh no! Your browser doesn't support canvas!
         </canvas>
-        <canvas id="textCanvas"></canvas>
+        <canvas id="textCanvas" oncontextmenu="event.preventDefault();"></canvas>
+        <menu id="controls">
+            <button onclick="exitGame()">Exit</button>
+            <button onclick="sendStopGame()" id="stopGameButton" class="hidden">Stop Game</button>
+            <button onclick="placeTunnel()" id="tunnelButton" class="hidden" disabled>Dig Tunnel</button>
+        </menu>
 
         <script src="/js/vector.js" type="text/javascript"></script>
         <script src="/js/util.js" type="text/javascript"></script>

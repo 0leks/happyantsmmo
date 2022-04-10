@@ -9,6 +9,7 @@ public class CoinDB {
 	
 	private static final String PLAYERS_TABLE = "coingameplayers";
 	private static final String COINS_TABLE = "coingamecoins";
+	private static final String TUNNELS_TABLE = "coingametunnels";
 
 	private Connection connection;
 
@@ -27,6 +28,17 @@ public class CoinDB {
 			+ "	y integer NOT NULL DEFAULT 0,\n"
 			+ " value integer NOT NULL DEFAULT 1\n"
 			+ ");";
+
+	private static final String createTunnelsTable = 
+			"CREATE TABLE IF NOT EXISTS " + TUNNELS_TABLE + " (\n"
+			+ "	id SERIAL PRIMARY KEY,\n"
+			+ "	x1 integer NOT NULL DEFAULT 0,\n"
+			+ "	y1 integer NOT NULL DEFAULT 0,\n"
+			+ "	x2 integer NOT NULL DEFAULT 0,\n"
+			+ "	y2 integer NOT NULL DEFAULT 0,\n"
+			+ " playerid integer NOT NULL\n"
+			+ ");";
+	
 	private static final String createCoinsTable_addValueCol = 
 			"ALTER TABLE " + COINS_TABLE + " ADD value integer NOT NULL DEFAULT 1;";
 	
@@ -78,8 +90,9 @@ public class CoinDB {
 			getCoinsStatement = connection.prepareStatement(getCoins);
 			getCoinsInRangeStatement = connection.prepareStatement(getCoinsInRange);
 			deleteCoinStatement = connection.prepareStatement(deleteCoin);
-//			incrementNumcoinsStatement = connection.prepareStatement(incrementNumcoins);
 			getCoinStatement = connection.prepareStatement(getCoin);
+			
+			insertTunnelStatement = connection.prepareStatement(insertTunnel);
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -88,17 +101,28 @@ public class CoinDB {
 	}
 
 	public void createCoinGameTables() {
-		try (Statement stmt = connection.createStatement()) {
-			stmt.execute(createPlayersTable);
-		} catch (SQLException e) {
-			e.printStackTrace();
+		if (!DBUtil.doesTableExist(PLAYERS_TABLE)) {
+			try (Statement stmt = connection.createStatement()) {
+				stmt.execute(createPlayersTable);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
 		}
-		
-		try (Statement stmt = connection.createStatement()) {
-			stmt.execute(createCoinsTable);
-//			stmt.execute(createCoinsTable_addValueCol);
-		} catch (SQLException e) {
-			e.printStackTrace();
+
+		if (!DBUtil.doesTableExist(COINS_TABLE)) {
+			try (Statement stmt = connection.createStatement()) {
+				stmt.execute(createCoinsTable);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
+		if (!DBUtil.doesTableExist(TUNNELS_TABLE)) {
+			try (Statement stmt = connection.createStatement()) {
+				stmt.execute(createTunnelsTable);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -217,6 +241,23 @@ public class CoinDB {
 		try {
 			deleteCoinStatement.setInt(1, coin.id);
 			deleteCoinStatement.execute();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static final String insertTunnel = 
+			"INSERT INTO " + TUNNELS_TABLE + "(id, x1, y1, x2, y2, playerid) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
+	private PreparedStatement insertTunnelStatement;
+	public void insertTunnel(Tunnel tunnel) {
+		try {
+			insertTunnelStatement.setInt(1, tunnel.id);
+			insertTunnelStatement.setInt(2, tunnel.x1);
+			insertTunnelStatement.setInt(3, tunnel.y1);
+			insertTunnelStatement.setInt(4, tunnel.x2);
+			insertTunnelStatement.setInt(5, tunnel.y2);
+			insertTunnelStatement.setInt(6, tunnel.playerid);
+			insertTunnelStatement.execute();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}

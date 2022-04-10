@@ -28,6 +28,8 @@ let COIN_SIZE = 200;
 let coinPositions = {};
 let coinValues = {};
 
+let tunnels = [];
+
 // Rendering data shared with the
 // scalers.
 
@@ -41,6 +43,7 @@ let aVertexPosition;
 let previousTime = 0.0;
 let degreesPerSecond = 90.0;
 
+let loadingMessage = 'Loading... Please wait.';
 
 
 let wsurl = SERVER_WEBSOCKET_PROTOCOL + SERVER_URL + "coin";
@@ -59,6 +62,10 @@ function disconnected() {
     document.location.href = "/";
 }
 
+function exitGame() {
+    document.location.href = "/";
+}
+
 function sendHello() {
     let jsonData = {
         'type': 'HELLO',
@@ -73,9 +80,7 @@ function sendStopGame() {
     let jsonData = {
         'type': 'STOP'
     };
-    let tosend = JSON.stringify(jsonData);
-    console.log('sending ' + tosend);
-    ws.send(tosend);
+    ws.send(JSON.stringify(jsonData));
 }
 
 function sendMove(x, y) {
@@ -84,29 +89,72 @@ function sendMove(x, y) {
         'x': x,
         'y': y
     }
-    // console.log(data);
     ws.send(JSON.stringify(data));
 }
 
-id("textCanvas").addEventListener('click', logMouseEvent, false);
-function logMouseEvent(e) {
-    // console.log(e);
-    let mypos = getMyPosition(myID);
-    let targetPos = [mypos[0] + (e.x - glCanvas.width / 2) * WORLD_SCALE, mypos[1] - (e.y - glCanvas.height / 2) * WORLD_SCALE];
-    // console.log('mypos:' + mypos);
-    playerTargetPositions[myID] = {
-        'from': new Vector(mypos[0], mypos[1], 0),
-        'to': new Vector(targetPos[0], targetPos[1], 0),
-        'previousTime': previousTime
-    };
-    sendMove(targetPos[0], targetPos[1]);
+function sendNewTunnel(newTunnelAt) {
+    let data = {
+        'type': 'TUNNEL',
+        'x': newTunnelAt[0],
+        'y': newTunnelAt[1]
+    }
+    ws.send(JSON.stringify(data));
 }
 
-document.addEventListener('keydown', logKey);
-function logKey(e) {
-    console.log(e);
-    if (e.code == 'Escape') {
-        sendStopGame();
+id("textCanvas").addEventListener('mousedown', mousePressed, false);
+id("textCanvas").addEventListener('mouseup', mouseReleased, false);
+id("textCanvas").addEventListener('mousemove', mouseMoved, false);
+let mousePos = [0, 0];
+function screenToGamePos(screenPos) {
+    let mypos = getMyPosition(myID);
+    let targetPos = [mypos[0] + (screenPos.x - glCanvas.width / 2) * WORLD_SCALE, mypos[1] - (screenPos.y - glCanvas.height / 2) * WORLD_SCALE];
+    return targetPos;
+}
+function mouseMoved(e) {
+    mousePos = screenToGamePos(e);
+}
+function mousePressed(e) {
+
+    if (e.button == 2) {
+        placingTunnelAt = null;
+        placingTunnel = false;
+        updatePlaceTunnelButton();
+        return;
+    }
+
+    // console.log(e);
+    let mypos = getMyPosition(myID);
+    let targetPos = screenToGamePos(e);
+
+
+    if ( !placingTunnel) {
+        // console.log('mypos:' + mypos);
+        playerTargetPositions[myID] = {
+            'from': new Vector(mypos[0], mypos[1], 0),
+            'to': new Vector(targetPos[0], targetPos[1], 0),
+            'previousTime': previousTime
+        };
+        sendMove(targetPos[0], targetPos[1]);
+    }
+    else {
+        placingTunnelAt = targetPos;
+    }
+}
+function mouseReleased(e) {
+    if (placingTunnel) {
+        if (placingTunnelAt) {
+            sendNewTunnel(placingTunnelAt);
+            placingTunnelAt = null;
+        }
+    }
+}
+
+function receiveHelloMessage(data) {
+    console.log(data);
+    myID = data.id;
+
+    if (myID == ADMIN_ID) {
+        id("stopGameButton").classList.remove('hidden');
     }
 }
 
@@ -120,9 +168,7 @@ function receiveMessage(msg) {
     lastTimestamp = timestamp;
 
     if (data.type == 'HELLO') {
-        console.log(data);
-        myID = data.id;
-        status += myID;
+        receiveHelloMessage(data);
     }
     else if (data.type == 'BYE') {
         console.log(data);
@@ -146,6 +192,12 @@ function receiveMessage(msg) {
             }
         }
         console.log(playerInfos);
+    }
+    else if (data.type == 'TUNNEL') {
+        console.log(data);
+        data.tunnels.forEach(tunnel => {
+            tunnels.push(tunnel);
+        });
     }
     else if (data.type == 'MOVE') {
         if ('players' in data) {
@@ -193,6 +245,7 @@ function receiveMessage(msg) {
                 }
             });
         }
+        loadingMessage = '';
     }
     console.log(status);
 }
@@ -206,14 +259,44 @@ function playersDisconnected(ids) {
     });
 }
 
+let TUNNEL_COST = 1100;
+let placingTunnel = false;
+let placingTunnelAt = null;
+function placeTunnel() {
+    if (playerInfos[myID].numcoins >= TUNNEL_COST) {
+        console.log("Placing tunnel");
+        placingTunnel = true;
+        updatePlaceTunnelButton();
+    }
+}
 
 window.addEventListener("load", startup, false);
 
-function updatePlayerInfo(id, key, value) {
-    if (!(id in playerInfos)) {
-        playerInfos[id] = {};
+let placeTunnelButton = id("tunnelButton");
+function updatePlaceTunnelButton() {
+    return;
+    if (placingTunnel) {
+        placeTunnelButton.disabled = true;
+        return;
     }
-    playerInfos[id][key] = value;
+    if (playerInfos[myID].numcoins >= TUNNEL_COST) {
+        placeTunnelButton.disabled = false;
+        placeTunnelButton.classList.remove('hidden');
+    }
+    else {
+        placeTunnelButton.disabled = true;
+    }
+}
+
+function updatePlayerInfo(pid, key, value) {
+    if (!(pid in playerInfos)) {
+        playerInfos[pid] = {};
+    }
+    playerInfos[pid][key] = value;
+
+    if (pid == myID && key == 'numcoins') {
+        updatePlaceTunnelButton();
+    }
 }
 
 function getPlayerInfo(id, key) {
@@ -409,6 +492,7 @@ function drawMeshes(mesh, positions, scale) {
 
 let cameraTranslate = [0, 0];
 function animateScene() {
+
     gl.viewport(0, 0, glCanvas.width, glCanvas.height);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -458,6 +542,9 @@ function animateScene() {
     
     gl.uniform2fv(uRotationVector, [1, 0]);
 
+    
+
+
     textContext.clearRect(0, 0, textContext.canvas.width, textContext.canvas.height);
     textContext.strokeRect(0, 0, textContext.canvas.width, textContext.canvas.height);
 
@@ -478,7 +565,40 @@ function animateScene() {
             textContext.fillText('' + getPlayerInfo(id, 'numcoins'), playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
         }
     }
+    textContext.fillText(loadingMessage, 0, 0);
+    
+    tunnels.forEach(tunnel => {
+        let tunnelSize = 50*WORLD_SCALE;
+        textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+        textContext.lineWidth = tunnelSize;
+        textContext.beginPath();
+        textContext.moveTo(tunnel.x1, -tunnel.y1);
+        textContext.lineTo(tunnel.x2, -tunnel.y2);
+        textContext.stroke(); 
+    });
+
+    if (placingTunnel) {
+        let myPos = getMyPosition(myID);
+        let tunnelPos = mousePos;
+        if (placingTunnelAt) {
+            tunnelPos = placingTunnelAt;
+        }
+
+        let tunnelSize = 50*WORLD_SCALE;
+        textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
+        textContext.fillRect(tunnelPos[0] - tunnelSize/2, -tunnelPos[1] - tunnelSize/2, tunnelSize, tunnelSize);
+        textContext.lineWidth = tunnelSize;
+        textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+
+        textContext.beginPath();
+        textContext.moveTo(myPos[0], -myPos[1]);
+        textContext.lineTo(tunnelPos[0], -tunnelPos[1]);
+        textContext.stroke(); 
+    }
+
     textContext.restore();
+
+
 
 
 

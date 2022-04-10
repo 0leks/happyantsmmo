@@ -10,8 +10,12 @@ public class CoinGameState {
 
 	private Map<Integer, Coin> loadedCoins = new ConcurrentHashMap<>();
 	private Map<Integer, PlayerInfo> loadedPlayerInfo = new ConcurrentHashMap<>();
+	private Map<Integer, Tunnel> loadedTunnels = new ConcurrentHashMap<>();
+	
 	private ConcurrentLinkedQueue<Coin> collectedCoins = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<Coin> newCoins = new ConcurrentLinkedQueue<>();
+	
+	private ConcurrentLinkedQueue<Tunnel> newTunnels = new ConcurrentLinkedQueue<>();
 	
 	private int maxCoinID;
 	private boolean autoWrite;
@@ -45,6 +49,14 @@ public class CoinGameState {
 			++removedCoinsCount;
 		}
 		System.out.println("Saved " + removedCoinsCount + " removed coins to DB");
+		
+		int newTunnelsCount = 0;
+		while (!newTunnels.isEmpty()) {
+			Tunnel tunnel = newTunnels.remove();
+			DB.coinsDB.insertTunnel(tunnel);
+			++newTunnelsCount;
+		}
+		System.out.println("Saved " + newTunnelsCount + " new tunnels to DB");
 	}
 	
 	public PlayerInfo getPlayerInfo(int id) {
@@ -108,5 +120,12 @@ public class CoinGameState {
 		if (autoWrite) {
 			DB.coinsDB.deleteCoin(coin);
 		}
+	}
+	
+	public Tunnel createNewTunnel(int x1, int y1, int x2, int y2, int playerid) {
+		Tunnel tunnel = Tunnel.makeTunnel(x1, y1, x2, y2, playerid);
+		loadedTunnels.put(tunnel.id, tunnel);
+		newTunnels.add(tunnel);
+		return tunnel;
 	}
 }

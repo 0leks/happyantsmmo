@@ -79,19 +79,9 @@ public class CoinGame {
 			return;
 		}
 		
-		JSONObject message = new JSONObject();
-		message.put("type", MessageType.STOP);
-		message.put("message", "Server is closing for maintenance in 5 seconds");
-		String tosend = message.toString();
-		for (WebSocketSession playerContext : contextToPlayerInfoMap.keySet()) {
-			try {
-				playerContext.sendMessage(new TextMessage(tosend));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
+		sendToAll("Server is closing for maintenance in 20 seconds");
 		try {
-			Thread.sleep(5000);
+			Thread.sleep(20000);
 		} catch (InterruptedException e1) {
 			e1.printStackTrace();
 		}
@@ -187,6 +177,24 @@ public class CoinGame {
 		sendLocations(false);
 	}
 	
+	public void receiveTunnel(WebSocketSession ctx, int x, int y) {
+		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
+		if (player == null) {
+			return;
+		}
+		Tunnel tunnel = state.createNewTunnel(x, y, player.x, player.y, player.id);
+		JSONObject obj = new JSONObject();
+		obj.put("type", MessageType.TUNNEL);
+		JSONArray arr = new JSONArray();
+		arr.put(new JSONObject(tunnel));
+		obj.put("tunnels", arr);
+		try {
+			ctx.sendMessage(new TextMessage(obj.toString()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
 	public void receiveMessage(WebSocketSession ctx, TextMessage textMessage) {
 		String message = textMessage.getPayload();
 		JSONObject obj = new JSONObject(message);
@@ -203,6 +211,10 @@ public class CoinGame {
 
 		case STOP:
 			stopGame(ctx);
+			break;
+		
+		case TUNNEL:
+			receiveTunnel(ctx, obj.getInt("x"), obj.getInt("y"));
 			break;
 			
 		default:
