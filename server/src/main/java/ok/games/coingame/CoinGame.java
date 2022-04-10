@@ -278,9 +278,10 @@ public class CoinGame {
 	}
 	
 	private void addCoin() {
-		int x = (int)(Util.gaussian() * 20000 - 10000);
-		int y = (int)(Util.gaussian() * 20000 - 10000);
-		int value = (int)(Math.abs(Util.gaussian() - 0.5) * 9) + 1;
+		int x = (int)(Util.reverseGaussian() * 20000 - 10000);
+		int y = (int)(Util.reverseGaussian() * 20000 - 10000);
+		double skewed = Math.abs(Util.gaussian() - 0.5) * 2;
+		int value = (int)(skewed * 9) + 1;
 		state.addNewCoin(x, y, value);
 	}
 	

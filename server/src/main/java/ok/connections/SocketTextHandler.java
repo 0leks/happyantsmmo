@@ -15,7 +15,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
 	@Override
 	public void handleTextMessage(WebSocketSession session, TextMessage message)
 			throws InterruptedException, IOException {
-		System.err.println("received message " + message);
+		System.out.println("received message " + message);
 		Application.coingame.receiveMessage(session, message);
 		
 //		System.err.println("received message");
@@ -27,13 +27,13 @@ public class SocketTextHandler extends TextWebSocketHandler {
 
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-		System.err.println("established connection with " + session.getRemoteAddress());
+		System.out.println("established connection with " + session.getRemoteAddress());
 //		session.sendMessage(new TextMessage("hello"));
 	}
 
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
-		System.err.println("afterConnectionClosed");
+		System.out.println("afterConnectionClosed");
 		
 		Application.coingame.closedConnection(session);
 	}
