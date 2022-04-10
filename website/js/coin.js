@@ -2,6 +2,47 @@
 let WORLD_SCALE = 10;
 let playerSpeed = 100*WORLD_SCALE;
 
+
+let gl = null;
+let glCanvas = null;
+let textContext = null;
+let textCanvas = null;
+
+// Aspect ratio and coordinate system
+// details
+
+let aspectRatio;
+let currentRotation = [0, 1];
+let currentScale = [1.0, 1.0];
+
+// Vertex information
+
+let squareMesh = {};
+let circleMesh = {};
+
+let PLAYER_SIZE = 600;
+let playerPositions = {};
+let playerTargetPositions = {};
+let playerInfos = {};
+let COIN_SIZE = 200;
+let coinPositions = {};
+let coinValues = {};
+
+// Rendering data shared with the
+// scalers.
+
+let uScalingFactor;
+let uGlobalColor;
+let uRotationVector;
+let aVertexPosition;
+
+// Animation timing
+
+let previousTime = 0.0;
+let degreesPerSecond = 90.0;
+
+
+
 let wsurl = SERVER_WEBSOCKET_PROTOCOL + SERVER_URL + "coin";
 console.log("connecting to websocket at " + wsurl);
 let ws = new WebSocket(wsurl);
@@ -47,7 +88,7 @@ function sendMove(x, y) {
     ws.send(JSON.stringify(data));
 }
 
-document.addEventListener('click', logMouseEvent);
+id("textCanvas").addEventListener('click', logMouseEvent, false);
 function logMouseEvent(e) {
     // console.log(e);
     let mypos = getMyPosition(myID);
@@ -165,43 +206,6 @@ function playersDisconnected(ids) {
     });
 }
 
-let gl = null;
-let glCanvas = null;
-let textContext = null;
-let textCanvas = null;
-
-// Aspect ratio and coordinate system
-// details
-
-let aspectRatio;
-let currentRotation = [0, 1];
-let currentScale = [1.0, 1.0];
-
-// Vertex information
-
-let squareMesh = {};
-let circleMesh = {};
-
-let PLAYER_SIZE = 600;
-let playerPositions = {};
-let playerTargetPositions = {};
-let playerInfos = {};
-let COIN_SIZE = 200;
-let coinPositions = {};
-let coinValues = {};
-
-// Rendering data shared with the
-// scalers.
-
-let uScalingFactor;
-let uGlobalColor;
-let uRotationVector;
-let aVertexPosition;
-
-// Animation timing
-
-let previousTime = 0.0;
-let degreesPerSecond = 90.0;
 
 window.addEventListener("load", startup, false);
 

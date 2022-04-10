@@ -43,7 +43,7 @@ public class CoinDB {
 	private PreparedStatement updatePlayerInfoStatement;
 
 	private static final String insertCoin = 
-			"INSERT INTO " + COINS_TABLE + "(id, x, y) VALUES(?, ?, ?) ON CONFLICT DO NOTHING";
+			"INSERT INTO " + COINS_TABLE + "(id, x, y, value) VALUES(?, ?, ?, ?) ON CONFLICT DO NOTHING";
 	private PreparedStatement insertCoinStatement;
 
 	private static final String getCoins = 
@@ -148,6 +148,7 @@ public class CoinDB {
 			insertCoinStatement.setInt(1, coin.id);
 			insertCoinStatement.setInt(2, coin.x);
 			insertCoinStatement.setInt(3, coin.y);
+			insertCoinStatement.setInt(4, coin.value);
 			insertCoinStatement.executeUpdate();
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
