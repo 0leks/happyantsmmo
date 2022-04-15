@@ -129,6 +129,7 @@ public class CoinGameState {
 		Tunnel tunnel = new Tunnel(++maxTunnelID, x1, y1, x2, y2, playerid);
 		loadedTunnels.put(tunnel.id, tunnel);
 		newTunnels.add(tunnel);
+		playerToTunnels.get(playerid).add(tunnel);
 		return tunnel;
 	}
 	
@@ -137,6 +138,9 @@ public class CoinGameState {
 			playerToTunnels.put(playerid, new ConcurrentLinkedQueue<>());
 		}
 		List<Tunnel> tunnels = DB.coinsDB.getTunnelsOfPlayer(playerid);
+		for (Tunnel tunnel : tunnels) {
+			loadedTunnels.put(tunnel.id, tunnel);
+		}
 		ConcurrentLinkedQueue<Tunnel> playerTunnels = playerToTunnels.get(playerid);
 		playerTunnels.addAll(tunnels);
 		return tunnels;

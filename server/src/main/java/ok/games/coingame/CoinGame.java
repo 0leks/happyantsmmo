@@ -147,11 +147,7 @@ public class CoinGame {
 		
 		JSONObject obj = new JSONObject(playerInfo);
 		obj.put("type", MessageType.HELLO);
-		try {
-			ctx.sendMessage(new TextMessage(obj.toString()));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		sendToOne(obj.toString(), ctx);
 		newConnectionNotification.add(info);
 		shareAllPlayerMappingWith(ctx);
 		shareAllTunnelsOf(ctx, playerInfo);
@@ -166,11 +162,7 @@ public class CoinGame {
 				arr.put(new JSONObject(tunnel));
 			}
 			obj.put("tunnels", arr);
-			try {
-				ctx.sendMessage(new TextMessage(obj.toString()));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			sendToOne(obj.toString(), ctx);
 		}
 	}
 	
@@ -206,11 +198,7 @@ public class CoinGame {
 		JSONArray arr = new JSONArray();
 		arr.put(new JSONObject(tunnel));
 		obj.put("tunnels", arr);
-		try {
-			ctx.sendMessage(new TextMessage(obj.toString()));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		sendToOne(obj.toString(), ctx);
 	}
 	
 	public void receiveMessage(WebSocketSession ctx, TextMessage textMessage) {
@@ -255,7 +243,7 @@ public class CoinGame {
 			boolean inTunnel = false;
 			for (Tunnel tunnel : state.playerToTunnels.get(player.id)) {
 				double dist = Util.distanceToLine(newPosition, new Vec2(tunnel.x1, tunnel.y1), new Vec2(tunnel.x2, tunnel.y2));
-				if (dist < 200) {
+				if (dist < 220) {
 					inTunnel = true;
 					break;
 				}
@@ -401,44 +389,37 @@ public class CoinGame {
 
 		sendAllPlayerLocations = false;
 		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
-			if (ctx.isOpen()) {
-				
-				// TODO share all coins on connect then only send new coins to all connections
-				// that way no need to keep list of shared coins per connection
-				// also no need to iterate through entire list of coins per connection
-				JSONArray coinsArray = new JSONArray();
-				Set<Integer> alreadySharedCoins = contextToCoinsShared.get(ctx);
-				for(Coin coin : state.getCoins()) {
-					if (!alreadySharedCoins.contains(coin.id)) {
-						coinsArray.put(new JSONObject(coin));
-						alreadySharedCoins.add(coin.id);
-						
-						if (coinsArray.length() > 1000) {
-							break;
-						}
+			// TODO share all coins on connect then only send new coins to all connections
+			// that way no need to keep list of shared coins per connection
+			// also no need to iterate through entire list of coins per connection
+			JSONArray coinsArray = new JSONArray();
+			Set<Integer> alreadySharedCoins = contextToCoinsShared.get(ctx);
+			for(Coin coin : state.getCoins()) {
+				if (!alreadySharedCoins.contains(coin.id)) {
+					coinsArray.put(new JSONObject(coin));
+					alreadySharedCoins.add(coin.id);
+					
+					if (coinsArray.length() > 1000) {
+						break;
 					}
 				}
-				
-				// always share all deleted coins
-				while(!deletedCoins.isEmpty()) {
-					coinsArray.put(new JSONObject(deletedCoins.remove()).put("delete", true));
-				}
-				if (coinsArray.length() > 0) {
-					jo.put("coins", coinsArray);
+			}
+			
+			// always share all deleted coins
+			while(!deletedCoins.isEmpty()) {
+				coinsArray.put(new JSONObject(deletedCoins.remove()).put("delete", true));
+			}
+			if (coinsArray.length() > 0) {
+				jo.put("coins", coinsArray);
 //					System.err.println("sending " + coinsArray.length() + " coins");
-				}
-				
-				// if at least 1 thing to send
-				// TODO heartbeat needs to be recorded per connection. 
-				// if I start sending only data that is in viewport,
-				// then need to make sure that all connections get periodic heartbeats.
-				if (heartbeat || jo.length() > 1) {
-					try {
-						ctx.sendMessage(new TextMessage(jo.toString()));
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
+			}
+			
+			// if at least 1 thing to send
+			// TODO heartbeat needs to be recorded per connection. 
+			// if I start sending only data that is in viewport,
+			// then need to make sure that all connections get periodic heartbeats.
+			if (heartbeat || jo.length() > 1) {
+				sendToOne(jo.toString(), ctx);
 			}
 		}
 		
@@ -467,13 +448,23 @@ public class CoinGame {
 	}
 	
 	private void sendToAll(String message) {
+		TextMessage textMessage = new TextMessage(message);
 		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
-			if (ctx.isOpen()) {
-				try {
-					ctx.sendMessage(new TextMessage(message));
-				} catch (IOException e) {
-					e.printStackTrace();
+			sendToOne(textMessage, ctx);
+		}
+	}
+
+	private void sendToOne(String message, WebSocketSession ctx) {
+		sendToOne(new TextMessage(message), ctx);
+	}
+	private void sendToOne(TextMessage message, WebSocketSession ctx) {
+		if (ctx.isOpen()) {
+			try {
+				synchronized(ctx) {
+					ctx.sendMessage(message);
 				}
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 		}
 	}
@@ -484,11 +475,7 @@ public class CoinGame {
 			playerMapping.put("" + accountInfo.id, accountInfo.handle);
 		}
 		playerMapping.put("type", MessageType.MAPPING);
-		try {
-			ctx.sendMessage(new TextMessage(playerMapping.toString()));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		sendToOne(playerMapping.toString(), ctx);
 	}
 	
 	private void databaseSaveFunction() {
@@ -507,14 +494,10 @@ public class CoinGame {
 	}
 	
 	private void sendBye(WebSocketSession ctx, String message) {
-		try {
-			JSONObject obj = new JSONObject()
-					.put("type", MessageType.BYE)
-					.put("message", message);
-			ctx.sendMessage(new TextMessage(obj.toString()));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		JSONObject obj = new JSONObject()
+				.put("type", MessageType.BYE)
+				.put("message", message);
+		sendToOne(obj.toString(), ctx);
 	}
 	
 	@Override
