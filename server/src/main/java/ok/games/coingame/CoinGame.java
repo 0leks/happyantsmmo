@@ -154,6 +154,24 @@ public class CoinGame {
 		}
 		newConnectionNotification.add(info);
 		shareAllPlayerMappingWith(ctx);
+		shareAllTunnelsOf(ctx, playerInfo);
+	}
+	
+	private void shareAllTunnelsOf(WebSocketSession ctx, PlayerInfo info) {
+		List<Tunnel> tunnels = state.getTunnelsOfPlayer(info.id);
+		if (!tunnels.isEmpty()) {
+			JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
+			JSONArray arr = new JSONArray();
+			for(Tunnel tunnel : tunnels) {
+				arr.put(new JSONObject(tunnel));
+			}
+			obj.put("tunnels", arr);
+			try {
+				ctx.sendMessage(new TextMessage(obj.toString()));
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 	
 	public void closedConnection(WebSocketSession ctx) {
@@ -227,10 +245,28 @@ public class CoinGame {
 			return;
 		}
 		Vec3 interpolatedPosition = getInterpolatedPlayerPosition(player);
-		player.x = interpolatedPosition.x;
-		player.y = interpolatedPosition.y;
-		player.x = Math.max(Math.min(player.x, 10000), -10000);
-		player.y = Math.max(Math.min(player.y, 10000), -10000);
+		Vec2 newPosition = interpolatedPosition.xy();
+		
+		
+		if (newPosition.x >= -10000 && newPosition.x <= 10000 && newPosition.y >= -10000 && newPosition.y < 10000) {
+			
+		}
+		else {
+			boolean inTunnel = false;
+			for (Tunnel tunnel : state.playerToTunnels.get(player.id)) {
+				double dist = Util.distanceToLine(newPosition, new Vec2(tunnel.x1, tunnel.y1), new Vec2(tunnel.x2, tunnel.y2));
+				if (dist < 200) {
+					inTunnel = true;
+					break;
+				}
+			}
+			if (!inTunnel) {
+				newPosition.x = player.x;
+				newPosition.y = player.y;
+			}
+		}
+		player.x = newPosition.x;
+		player.y = newPosition.y;
 
 		if (playerTargetLocations.containsKey(player)) {
 			Vec3 fullTarget = playerTargetLocations.get(player);
@@ -366,6 +402,10 @@ public class CoinGame {
 		sendAllPlayerLocations = false;
 		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
 			if (ctx.isOpen()) {
+				
+				// TODO share all coins on connect then only send new coins to all connections
+				// that way no need to keep list of shared coins per connection
+				// also no need to iterate through entire list of coins per connection
 				JSONArray coinsArray = new JSONArray();
 				Set<Integer> alreadySharedCoins = contextToCoinsShared.get(ctx);
 				for(Coin coin : state.getCoins()) {

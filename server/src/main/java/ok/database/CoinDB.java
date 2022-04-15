@@ -93,6 +93,7 @@ public class CoinDB {
 			getCoinStatement = connection.prepareStatement(getCoin);
 			
 			insertTunnelStatement = connection.prepareStatement(insertTunnel);
+			selectTunnelStatement = connection.prepareStatement(selectTunnels);
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -261,6 +262,45 @@ public class CoinDB {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	private static final String getMaxTunnelID = "SELECT MAX(id) FROM " + TUNNELS_TABLE;
+	public int getMaxTunnelID() {
+		try (Statement stmt = connection.createStatement();
+				ResultSet rs = stmt.executeQuery(getMaxTunnelID)) {
+			while (rs.next()) {
+				int max = rs.getInt(1);
+				System.err.println(max);
+				return max;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return 0;
+	}
+
+	private static final String selectTunnels = 
+			"SELECT * FROM " + TUNNELS_TABLE + " WHERE playerid=?";
+	private PreparedStatement selectTunnelStatement;
+	public List<Tunnel> getTunnelsOfPlayer(int playerid) {
+		List<Tunnel> list = new ArrayList<>();
+		try {
+			selectTunnelStatement.setInt(1, playerid);
+			try (ResultSet rs = selectTunnelStatement.executeQuery()) {
+				while (rs.next()) {
+					list.add(new Tunnel(
+							rs.getInt("id"),
+							rs.getInt("x1"),
+							rs.getInt("y1"),
+							rs.getInt("x2"),
+							rs.getInt("y2"),
+							rs.getInt("playerid")));
+				}
+			}
+		} catch (SQLException e) {
+			System.out.println(e.getMessage());
+		}
+		return list;
 	}
 	
 //	public void collected(int playerid, int coinid) {

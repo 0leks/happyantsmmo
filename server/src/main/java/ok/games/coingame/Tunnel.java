@@ -4,7 +4,6 @@ import java.beans.JavaBean;
 
 @JavaBean
 public class Tunnel {
-	private static int idcounter = 0;
 	
 	public int id;
 	public int x1, y1;
@@ -18,10 +17,6 @@ public class Tunnel {
 		this.x2 = x2;
 		this.y2 = y2;
 		this.playerid = playerid;
-	}
-	
-	public static Tunnel makeTunnel(int x1, int y1, int x2, int y2, int playerid) {
-		return new Tunnel(idcounter++, x1, y1, x2, y2, playerid);
 	}
 
 	public int getId() {

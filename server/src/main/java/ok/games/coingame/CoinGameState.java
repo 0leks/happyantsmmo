@@ -16,8 +16,10 @@ public class CoinGameState {
 	private ConcurrentLinkedQueue<Coin> newCoins = new ConcurrentLinkedQueue<>();
 	
 	private ConcurrentLinkedQueue<Tunnel> newTunnels = new ConcurrentLinkedQueue<>();
+	public Map<Integer, ConcurrentLinkedQueue<Tunnel>> playerToTunnels = new HashMap<>();
 	
 	private int maxCoinID;
+	private int maxTunnelID;
 	private boolean autoWrite;
 	
 	public CoinGameState(boolean autoWrite) {
@@ -26,6 +28,7 @@ public class CoinGameState {
 			loadedCoins.put(coin.id, coin);
 			maxCoinID = Math.max(maxCoinID, coin.id);
 		}
+		maxTunnelID = DB.coinsDB.getMaxTunnelID();
 		System.out.println("Loaded " + loadedCoins.size() + " coins from DB");
 	}
 	
@@ -123,9 +126,19 @@ public class CoinGameState {
 	}
 	
 	public Tunnel createNewTunnel(int x1, int y1, int x2, int y2, int playerid) {
-		Tunnel tunnel = Tunnel.makeTunnel(x1, y1, x2, y2, playerid);
+		Tunnel tunnel = new Tunnel(++maxTunnelID, x1, y1, x2, y2, playerid);
 		loadedTunnels.put(tunnel.id, tunnel);
 		newTunnels.add(tunnel);
 		return tunnel;
+	}
+	
+	public List<Tunnel> getTunnelsOfPlayer(int playerid) {
+		if (!playerToTunnels.containsKey(playerid)) {
+			playerToTunnels.put(playerid, new ConcurrentLinkedQueue<>());
+		}
+		List<Tunnel> tunnels = DB.coinsDB.getTunnelsOfPlayer(playerid);
+		ConcurrentLinkedQueue<Tunnel> playerTunnels = playerToTunnels.get(playerid);
+		playerTunnels.addAll(tunnels);
+		return tunnels;
 	}
 }

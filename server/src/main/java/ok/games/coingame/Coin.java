@@ -5,7 +5,6 @@ import java.beans.JavaBean;
 @JavaBean
 public class Coin {
 
-	private static int idcounter = 0;
 	public int id;
 	public int x;
 	public int y;
@@ -15,10 +14,6 @@ public class Coin {
 		this.x = x;
 		this.y = y;
 		this.value = value;
-	}
-	
-	public static Coin makeCoin(int x, int y, int value) {
-		return new Coin(idcounter++, x, y, value);
 	}
 	
 	public int getId() {
