@@ -274,7 +274,6 @@ window.addEventListener("load", startup, false);
 
 let placeTunnelButton = id("tunnelButton");
 function updatePlaceTunnelButton() {
-    return;
     if (placingTunnel) {
         placeTunnelButton.disabled = true;
         return;
@@ -593,6 +592,22 @@ function animateScene() {
         textContext.beginPath();
         textContext.moveTo(myPos[0], -myPos[1]);
         textContext.lineTo(tunnelPos[0], -tunnelPos[1]);
+        textContext.stroke(); 
+    }
+
+    if (myID in playerTargetPositions) {
+        
+        let tar = playerTargetPositions[myID].to;
+        let x_size = PLAYER_SIZE/2;
+        textContext.strokeStyle = 'rgba(255, 60, 60, 0.5)';
+        textContext.lineWidth = 50;
+
+        textContext.beginPath();
+        textContext.moveTo(tar.x + x_size, -tar.y + x_size);
+        textContext.lineTo(tar.x - x_size, -tar.y - x_size);
+
+        textContext.moveTo(tar.x + x_size, -tar.y - x_size);
+        textContext.lineTo(tar.x - x_size, -tar.y + x_size);
         textContext.stroke(); 
     }
 
