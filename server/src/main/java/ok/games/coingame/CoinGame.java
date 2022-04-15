@@ -40,7 +40,7 @@ public class CoinGame {
 	 * if null, need to share all coins
 	 * if has a hashmap, then cointains list of coin ids that have been shared
 	 */
-	private Map<WebSocketSession, Set<Integer>> contextToCoinsShared = new HashMap<>();	
+	private ConcurrentLinkedQueue<Coin> newCoins = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<Coin> deletedCoins = new ConcurrentLinkedQueue<>();
 
 	
@@ -137,7 +137,6 @@ public class CoinGame {
 			}
 		}
 		
-		contextToCoinsShared.put(ctx, new HashSet<>());
 		idToContextMap.put(info.id, ctx);
 		contextToAccountInfoMap.put(ctx, info);
 		contextToPlayerInfoMap.put(ctx, playerInfo);
@@ -148,6 +147,7 @@ public class CoinGame {
 		JSONObject obj = new JSONObject(playerInfo);
 		obj.put("type", MessageType.HELLO);
 		sendToOne(obj.toString(), ctx);
+		shareAllCoinsWith(ctx);
 		newConnectionNotification.add(info);
 		shareAllPlayerMappingWith(ctx);
 		shareAllTunnelsOf(ctx, playerInfo);
@@ -162,6 +162,18 @@ public class CoinGame {
 				arr.put(new JSONObject(tunnel));
 			}
 			obj.put("tunnels", arr);
+			sendToOne(obj.toString(), ctx);
+		}
+	}
+	
+	private void shareAllCoinsWith(WebSocketSession ctx) {
+		JSONObject obj = new JSONObject().put("type", MessageType.COIN);
+		JSONArray coinsArray = new JSONArray();
+		for(Coin coin : state.getCoins()) {
+			coinsArray.put(new JSONObject(coin));
+		}
+		if (coinsArray.length() > 0) {
+			obj.put("coins", coinsArray);
 			sendToOne(obj.toString(), ctx);
 		}
 	}
@@ -318,7 +330,9 @@ public class CoinGame {
 		int y = (int)(Util.reverseGaussian() * 20000 - 10000);
 		double skewed = Math.abs(Util.gaussian() - 0.5) * 2;
 		int value = (int)(skewed * 9) + 1;
-		state.addNewCoin(x, y, value);
+		
+		Coin coin = state.addNewCoin(x, y, value);
+		newCoins.add(coin);
 	}
 	
 	private void gameFunction() {
@@ -388,30 +402,22 @@ public class CoinGame {
 			jo.put("players", players);
 
 		sendAllPlayerLocations = false;
+
+		JSONArray coinsArray = new JSONArray();
+		while(!newCoins.isEmpty()) {
+			coinsArray.put(new JSONObject(newCoins.remove()));
+		}
+		while(!deletedCoins.isEmpty()) {
+			coinsArray.put(new JSONObject(deletedCoins.remove()).put("delete", true));
+		}
+		
 		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
 			// TODO share all coins on connect then only send new coins to all connections
 			// that way no need to keep list of shared coins per connection
 			// also no need to iterate through entire list of coins per connection
-			JSONArray coinsArray = new JSONArray();
-			Set<Integer> alreadySharedCoins = contextToCoinsShared.get(ctx);
-			for(Coin coin : state.getCoins()) {
-				if (!alreadySharedCoins.contains(coin.id)) {
-					coinsArray.put(new JSONObject(coin));
-					alreadySharedCoins.add(coin.id);
-					
-					if (coinsArray.length() > 1000) {
-						break;
-					}
-				}
-			}
-			
-			// always share all deleted coins
-			while(!deletedCoins.isEmpty()) {
-				coinsArray.put(new JSONObject(deletedCoins.remove()).put("delete", true));
-			}
+
 			if (coinsArray.length() > 0) {
 				jo.put("coins", coinsArray);
-//					System.err.println("sending " + coinsArray.length() + " coins");
 			}
 			
 			// if at least 1 thing to send

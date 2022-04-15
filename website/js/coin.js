@@ -158,6 +158,25 @@ function receiveHelloMessage(data) {
     }
 }
 
+function receiveCoinMessage(data) {
+    data.coins.forEach(coin => {
+        // console.log(coin);
+        if ('delete' in coin) {
+            delete coinPositions[coin.id];
+            delete coinValues[coin.id];
+        }
+        else {
+            coinPositions[coin.id] = [coin.x, coin.y];
+            if ('value' in coin) {
+                coinValues[coin.id] = coin.value;
+            }
+            else {
+                coinValues[coin.id] = '1';
+            }
+        }
+    });
+}
+
 var myID;
 var lastTimestamp;
 function receiveMessage(msg) {
@@ -199,6 +218,9 @@ function receiveMessage(msg) {
             tunnels.push(tunnel);
         });
     }
+    else if (data.type == 'COIN') {
+        receiveCoinMessage(data);
+    }
     else if (data.type == 'MOVE') {
         if ('players' in data) {
             status += `${data.players.length} players, `;
@@ -228,22 +250,7 @@ function receiveMessage(msg) {
 
         if ('coins' in data) {
             status += `${data.coins.length} coins, `;
-            data.coins.forEach(coin => {
-                // console.log(coin);
-                if ('delete' in coin) {
-                    delete coinPositions[coin.id];
-                    delete coinValues[coin.id];
-                }
-                else {
-                    coinPositions[coin.id] = [coin.x, coin.y];
-                    if ('value' in coin) {
-                        coinValues[coin.id] = coin.value;
-                    }
-                    else {
-                        coinValues[coin.id] = '1';
-                    }
-                }
-            });
+            receiveCoinMessage(data);
         }
         loadingMessage = '';
     }

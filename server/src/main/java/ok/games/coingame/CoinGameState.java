@@ -90,13 +90,14 @@ public class CoinGameState {
 		}
 	}
 	
-	public void addNewCoin(int x, int y, int value) {
+	public Coin addNewCoin(int x, int y, int value) {
 		Coin newcoin = new Coin(++maxCoinID, x, y, value);
 		loadedCoins.put(newcoin.id, newcoin);
 		newCoins.add(newcoin);
 		if (autoWrite) {
 			DB.coinsDB.insertCoin(newcoin);
 		}
+		return newcoin;
 	}
 	
 	public Collection<Coin> getCoins() {
