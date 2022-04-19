@@ -1,7 +1,9 @@
 package ok.games.coingame;
 
+import java.awt.*;
 import java.io.IOException;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.*;
 
 import org.json.*;
@@ -240,33 +242,102 @@ public class CoinGame {
 		}
 	}
 	
+	private java.util.List<Rectangle> mapRooms = new ArrayList<>();
+	// TODO cleanup later
+	{ 
+		mapRooms.add(new Rectangle(-10000, -10000, 20000, 20000));
+		mapRooms.add(new Rectangle( 25000, -20000, 10000, 10000));
+		mapRooms.add(new Rectangle( 25000, -5000, 10000, 10000));
+		mapRooms.add(new Rectangle( 25000, 10000, 10000, 10000));
+
+//		mapRooms.add(new Rectangle(-25000, -26000, 40000, 1000));
+//		mapRooms.add(new Rectangle(-25000, +25000, 40000, 1000));
+	}
+	
+	private Vec2 tryToMovePlayerToward(PlayerInfo player, Vec2 target) {
+
+		Vec2 playerVec = new Vec2(player.x, player.y);
+		Vec2 movementVec = target.minus(playerVec);
+		boolean validMove = false;
+		for (Rectangle room : mapRooms) {
+			if (room.contains(new Point(target.x, target.y))) {
+				validMove = true;
+			}
+		}
+		if (!validMove) {
+			// If outside of valid room, see if currently in a tunnel
+			boolean inTunnel = false;
+			for (Tunnel tunnel : state.playerToTunnels.get(player.id)) {
+				
+				Vec2 tunnelStart = new Vec2(tunnel.x1, tunnel.y1);
+				Vec2 tunnelEnd = new Vec2(tunnel.x2, tunnel.y2)/*; semicolon sus ඞ*/;
+				Vec2 tunnelVec = tunnelEnd.minus(tunnelStart);
+				
+				double tunnelLength = tunnelEnd.minus(tunnelStart).magnitude();
+				
+				double distanceAlongTunnel = VectorMath.projectPointOntoLine(target, tunnelStart, tunnelEnd);
+				Vec2 projectedTarget = tunnelStart.add(tunnelVec.multiply(distanceAlongTunnel/tunnelVec.magnitude()));
+				double distanceToTunnel = projectedTarget.distanceTo(target);
+				
+//				System.out.println("distanceAlongTunnel: " + distanceAlongTunnel);
+//				System.out.println("distanceToTunnel: " + distanceToTunnel);
+//				System.out.println("projectedTarget: " + projectedTarget);
+//				System.out.println("tunnel: " + tunnelStart + " -> " + tunnelEnd);
+				
+				if (distanceAlongTunnel >= 0 && distanceAlongTunnel <= tunnelLength) {
+					// within tunnel length
+					if (distanceToTunnel <= 220) {
+						// close enough to tunnel
+						inTunnel = true;
+						break;
+					}
+					else if (distanceToTunnel <= 250) {
+						double currentDistanceAlongTunnel = VectorMath.projectPointOntoLine(playerVec, tunnelStart, tunnelEnd);
+						Vec2 currentProjection = tunnelStart.add(tunnelEnd.minus(tunnelStart).multiply(currentDistanceAlongTunnel));
+						double currentDistanceToTunnel = currentProjection.distanceTo(playerVec);
+						if (distanceToTunnel < currentDistanceToTunnel) {
+							// allow movement back towards in bounds
+							inTunnel = true;
+							break;
+						}
+					}
+				}
+				else if (distanceAlongTunnel >= -30 && distanceAlongTunnel <= tunnelLength + 30) {
+					// outside of tunnel length
+					double currentDistanceAlongTunnel = VectorMath.projectPointOntoLine(playerVec, tunnelStart, tunnelEnd);
+					if (distanceAlongTunnel < currentDistanceAlongTunnel) {
+						// allow movement back towards tunnel
+						inTunnel = true;
+						break;
+					}
+				}
+			}
+			if (!inTunnel) {
+//				return new Vec2(player.x, player.y);
+				return null;
+			}
+		}
+		return target;
+	}
+	
 	private void movePlayer(PlayerInfo player) {
 		if (!playerTargetLocations.containsKey(player)) {
 			return;
 		}
 		Vec3 interpolatedPosition = getInterpolatedPlayerPosition(player);
-		Vec2 newPosition = interpolatedPosition.xy();
+		Vec2 targetPosition = interpolatedPosition.xy();
 		
+		Vec2 resultPosition = tryToMovePlayerToward(player, targetPosition);
+		if (resultPosition == null) {
+			playerTargetLocations.remove(player);
+			changedLocations.add(player.id);
+			return;
+		}
 		
-		if (newPosition.x >= -10000 && newPosition.x <= 10000 && newPosition.y >= -10000 && newPosition.y < 10000) {
-			
-		}
-		else {
-			boolean inTunnel = false;
-			for (Tunnel tunnel : state.playerToTunnels.get(player.id)) {
-				double dist = Util.distanceToLine(newPosition, new Vec2(tunnel.x1, tunnel.y1), new Vec2(tunnel.x2, tunnel.y2));
-				if (dist < 220) {
-					inTunnel = true;
-					break;
-				}
-			}
-			if (!inTunnel) {
-				newPosition.x = player.x;
-				newPosition.y = player.y;
-			}
-		}
-		player.x = newPosition.x;
-		player.y = newPosition.y;
+		// TODO add check if player actually moved here.
+		// if no movement, send info to client
+		player.x = resultPosition.x;
+		player.y = resultPosition.y;
 
 		if (playerTargetLocations.containsKey(player)) {
 			Vec3 fullTarget = playerTargetLocations.get(player);
@@ -326,13 +397,33 @@ public class CoinGame {
 	}
 	
 	private void addCoin() {
-		int x = (int)(Util.reverseGaussian() * 20000 - 10000);
-		int y = (int)(Util.reverseGaussian() * 20000 - 10000);
+		Rectangle room0 = mapRooms.get(0);
+		int x = (int)(Util.gaussian() * room0.width - room0.x);
+		int y = (int)(Util.gaussian() * room0.height - room0.y);
 		double skewed = Math.abs(Util.gaussian() - 0.5) * 2;
 		int value = (int)(skewed * 9) + 1;
 		
 		Coin coin = state.addNewCoin(x, y, value);
 		newCoins.add(coin);
+		
+		if (Math.random() < 0.4) {
+			Rectangle room1 = mapRooms.get(1 + (int)(Math.random() * (mapRooms.size() - 1)));
+			int x1 = (int)(Util.gaussian() * room1.width + room1.x);
+			int y1 = (int)(Util.gaussian() * room1.height + room1.y);
+			double skewed1 = Math.abs(Util.gaussian() - 0.5) * 2;
+			int value1 = (int)(skewed1 * 15) + 5;
+
+			if (Math.random() < 0.001) {
+				x1 = (int)(Util.reverseGaussian() * room1.width + room1.x);
+				y1 = (int)(Util.reverseGaussian() * room1.height + room1.y);
+				value1 = (int)(80 + 20*Util.gaussian());
+			}
+			Coin coin1 = state.addNewCoin(x1, y1, value1);
+			newCoins.add(coin1);
+		}
+		if (Math.random() < 0.01) {
+			
+		}
 	}
 	
 	private void gameFunction() {

@@ -129,11 +129,11 @@ function mousePressed(e) {
 
     if ( !placingTunnel) {
         // console.log('mypos:' + mypos);
-        playerTargetPositions[myID] = {
-            'from': new Vector(mypos[0], mypos[1], 0),
-            'to': new Vector(targetPos[0], targetPos[1], 0),
-            'previousTime': previousTime
-        };
+        // playerTargetPositions[myID] = {
+        //     'from': new Vector(mypos[0], mypos[1], 0),
+        //     'to': new Vector(targetPos[0], targetPos[1], 0),
+        //     'previousTime': previousTime
+        // };
         sendMove(targetPos[0], targetPos[1]);
     }
     else {
@@ -232,17 +232,20 @@ function receiveMessage(msg) {
 
 
                 if ('target' in player) {
-                    if (player.id == myID && playerTargetPositions[myID]) {
-                        playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
-                        playerTargetPositions[myID].previousTime = previousTime;
-                    }
-                    else {
+                    // if (player.id == myID && playerTargetPositions[myID]) {
+                    //     playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
+                    //     playerTargetPositions[myID].previousTime = previousTime;
+                    // }
+                    // else {
                         playerTargetPositions[player.id] = {
                             'from': new Vector(player.x, player.y, 0),
                             'to': new Vector(player.target.x, player.target.y, 0),
                             'previousTime': previousTime
                         };
-                    }
+                    // }
+                }
+                else {
+                    delete playerTargetPositions[player.id];
                 }
             });
 
@@ -496,6 +499,20 @@ function drawMeshes(mesh, positions, scale) {
     }
 }
 
+function drawRoom(gl, uGlobalColor, color1, color2, position, scale) {
+    gl.uniform4fv(uGlobalColor, color1);
+    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale);
+    
+    gl.uniform4fv(uGlobalColor, color2);
+    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale * 16/20);
+
+    gl.uniform4fv(uGlobalColor, color1);
+    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale * 8/20);
+
+    gl.uniform4fv(uGlobalColor, color2);
+    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale / 20);
+}
+
 let cameraTranslate = [0, 0];
 function animateScene() {
 
@@ -517,17 +534,10 @@ function animateScene() {
 
 
     // DRAW BACKGROUND SQUARES
-    gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 2000*WORLD_SCALE);
-    
-    gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 1600*WORLD_SCALE);
-
-    gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 800*WORLD_SCALE);
-
-    gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 200*WORLD_SCALE);
+    drawRoom(gl, uGlobalColor, [0.8, 0.9, 1.0, 1.0], [0.7, 0.8, 0.9, 1.0], [0, 0], 2000);
+    drawRoom(gl, uGlobalColor, [0.7, 0.9, 0.7, 1.0], [0.7, 0.6, 0.5, 1.0], [30000, -15000], 1000);
+    drawRoom(gl, uGlobalColor, [0.7, 0.9, 0.7, 1.0], [0.7, 0.6, 0.5, 1.0], [30000, 0], 1000);
+    drawRoom(gl, uGlobalColor, [0.7, 0.9, 0.7, 1.0], [0.7, 0.6, 0.5, 1.0], [30000, 15000], 1000);
 
     let radians = currentAngle * Math.PI / 180.0;
     currentRotation[0] = Math.sin(radians);
@@ -591,8 +601,8 @@ function animateScene() {
         }
 
         let tunnelSize = 50*WORLD_SCALE;
-        textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
-        textContext.fillRect(tunnelPos[0] - tunnelSize/2, -tunnelPos[1] - tunnelSize/2, tunnelSize, tunnelSize);
+        // textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
+        // textContext.fillRect(tunnelPos[0] - tunnelSize/2, -tunnelPos[1] - tunnelSize/2, tunnelSize, tunnelSize);
         textContext.lineWidth = tunnelSize;
         textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
 
