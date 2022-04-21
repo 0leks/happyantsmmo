@@ -4,22 +4,25 @@ import java.util.*;
 import java.util.concurrent.*;
 
 import ok.database.DB;
+import ok.games.coingame.tunnels.*;
 import ok.games.math.Vec2;
 
 public class CoinGameState {
 
 	private Map<Integer, Coin> loadedCoins = new ConcurrentHashMap<>();
 	private Map<Integer, PlayerInfo> loadedPlayerInfo = new ConcurrentHashMap<>();
-	private Map<Integer, Tunnel> loadedTunnels = new ConcurrentHashMap<>();
+	private Map<Integer, TunnelNode> loadedTunnelNodes = new ConcurrentHashMap<>();
 	
 	private ConcurrentLinkedQueue<Coin> collectedCoins = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<Coin> newCoins = new ConcurrentLinkedQueue<>();
 	
-	private ConcurrentLinkedQueue<Tunnel> newTunnels = new ConcurrentLinkedQueue<>();
-	public Map<Integer, ConcurrentLinkedQueue<Tunnel>> playerToTunnels = new HashMap<>();
+	private ConcurrentLinkedQueue<TunnelNode> newTunnelNodes = new ConcurrentLinkedQueue<>();
+	private ConcurrentLinkedQueue<TunnelSegment> newTunnelSegments = new ConcurrentLinkedQueue<>();
+	public Map<Integer, ConcurrentLinkedQueue<TunnelSegment>> playerToTunnels = new HashMap<>();
 	
-	private int maxCoinID;
-	private int maxTunnelID;
+	private volatile int maxCoinID;
+	private volatile int maxTunnelNodeID;
+	private volatile int maxTunnelSegmentID;
 	private boolean autoWrite;
 	
 	public CoinGameState(boolean autoWrite) {
@@ -28,7 +31,8 @@ public class CoinGameState {
 			loadedCoins.put(coin.id, coin);
 			maxCoinID = Math.max(maxCoinID, coin.id);
 		}
-		maxTunnelID = DB.coinsDB.getMaxTunnelID();
+		maxTunnelNodeID = DB.coinsDB.getMaxTunnelNodeId();
+		maxTunnelSegmentID = DB.coinsDB.getMaxTunnelSegmentId();
 		System.out.println("Loaded " + loadedCoins.size() + " coins from DB");
 	}
 	
@@ -53,13 +57,21 @@ public class CoinGameState {
 		}
 		System.out.println("Saved " + removedCoinsCount + " removed coins to DB");
 		
-		int newTunnelsCount = 0;
-		while (!newTunnels.isEmpty()) {
-			Tunnel tunnel = newTunnels.remove();
-			DB.coinsDB.insertTunnel(tunnel);
-			++newTunnelsCount;
+		int newTunnelNodesCount = 0;
+		while (!newTunnelNodes.isEmpty()) {
+			TunnelNode node = newTunnelNodes.remove();
+			DB.coinsDB.insertTunnelNode(node);
+			++newTunnelNodesCount;
 		}
-		System.out.println("Saved " + newTunnelsCount + " new tunnels to DB");
+		System.out.println("Saved " + newTunnelNodesCount + " new tunnel nodes to DB");
+
+		int newTunnelSegmentsCount = 0;
+		while (!newTunnelSegments.isEmpty()) {
+			TunnelSegment segment = newTunnelSegments.remove();
+			DB.coinsDB.insertTunnelSegment(segment);
+			++newTunnelSegmentsCount;
+		}
+		System.out.println("Saved " + newTunnelSegmentsCount + " new tunnel nodes to DB");
 	}
 	
 	public PlayerInfo getPlayerInfo(int id) {
@@ -134,24 +146,36 @@ public class CoinGameState {
 		}
 	}
 	
-	public Tunnel createNewTunnel(int x1, int y1, int x2, int y2, int playerid) {
-		Tunnel tunnel = new Tunnel(++maxTunnelID, x1, y1, x2, y2, playerid);
-		loadedTunnels.put(tunnel.id, tunnel);
-		newTunnels.add(tunnel);
-		playerToTunnels.get(playerid).add(tunnel);
-		return tunnel;
+	public TunnelNode createNewTunnelNode(int x, int y, int playerid) {
+		TunnelNode node = new TunnelNode(++maxTunnelNodeID, 
+										x, 
+										y, 
+										playerid);
+		newTunnelNodes.add(node);
+		loadedTunnelNodes.put(node.id, node);
+		return node;
 	}
 	
-	public List<Tunnel> getTunnelsOfPlayer(int playerid) {
+	public TunnelSegment createNewTunnelSegment(int nodeid1, int nodeid2, int playerid) {
+		TunnelSegment segment = new TunnelSegment(++maxTunnelSegmentID, 
+												loadedTunnelNodes.get(nodeid1), 
+												loadedTunnelNodes.get(nodeid2),
+												playerid);
+		newTunnelSegments.add(segment);
+		playerToTunnels.get(playerid).add(segment);
+		return segment;
+	}
+	
+	public boolean doesTunnelNodeExist(int nodeid) {
+		return loadedTunnelNodes.containsKey(nodeid);
+	}
+	
+	public List<TunnelSegment> getTunnelsOfPlayer(int playerid) {
 		if (!playerToTunnels.containsKey(playerid)) {
 			playerToTunnels.put(playerid, new ConcurrentLinkedQueue<>());
 		}
-		List<Tunnel> tunnels = DB.coinsDB.getTunnelsOfPlayer(playerid);
-		for (Tunnel tunnel : tunnels) {
-			loadedTunnels.put(tunnel.id, tunnel);
-		}
-		ConcurrentLinkedQueue<Tunnel> playerTunnels = playerToTunnels.get(playerid);
-		playerTunnels.addAll(tunnels);
-		return tunnels;
+		List<TunnelSegment> tunnelSegments = DB.coinsDB.getTunnelsOfPlayer(playerid, loadedTunnelNodes);
+		playerToTunnels.get(playerid).addAll(tunnelSegments);
+		return tunnelSegments;
 	}
 }

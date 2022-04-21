@@ -14,6 +14,7 @@ import org.springframework.web.socket.WebSocketSession;
 import ok.accounts.*;
 import ok.connections.*;
 import ok.connections.sessions.*;
+import ok.games.coingame.tunnels.*;
 import ok.games.math.*;
 //import io.javalin.websocket.*;
 import ok.util.Util;
@@ -155,11 +156,11 @@ public class CoinGame {
 	}
 	
 	private void shareAllTunnelsOf(WebSocketSession ctx, PlayerInfo info) {
-		List<Tunnel> tunnels = state.getTunnelsOfPlayer(info.id);
+		List<TunnelSegment> tunnels = state.getTunnelsOfPlayer(info.id);
 		if (!tunnels.isEmpty()) {
 			JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
 			JSONArray arr = new JSONArray();
-			for(Tunnel tunnel : tunnels) {
+			for(TunnelSegment tunnel : tunnels) {
 				arr.put(new JSONObject(tunnel));
 			}
 			obj.put("tunnels", arr);
@@ -196,12 +197,18 @@ public class CoinGame {
 		sendLocations(false);
 	}
 	
-	public void receiveTunnel(PlayerInfo player, int x, int y) {
-		Tunnel tunnel = state.createNewTunnel(x, y, player.x, player.y, player.id);
+	public void receiveTunnel(PlayerInfo player, int nodeid1, int x, int y) {
+		if (!state.doesTunnelNodeExist(nodeid1)) {
+			TunnelNode node1 = state.createNewTunnelNode(player.x, player.y, player.id);
+			nodeid1 = node1.id;
+		}
+		TunnelNode node2 = state.createNewTunnelNode(x, y, player.id);
+		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, node2.id, player.id);
+		
 		JSONObject obj = new JSONObject();
 		obj.put("type", MessageType.TUNNEL);
 		JSONArray arr = new JSONArray();
-		arr.put(new JSONObject(tunnel));
+		arr.put(new JSONObject(segment));
 		obj.put("tunnels", arr);
 		sendToOne(obj.toString(), idToContextMap.get(player.id));
 	}
@@ -247,7 +254,7 @@ public class CoinGame {
 			break;
 		
 		case TUNNEL:
-			receiveTunnel(player, obj.getInt("x"), obj.getInt("y"));
+			receiveTunnel(player, obj.getInt("nodeid1"), obj.getInt("x"), obj.getInt("y"));
 			break;
 		
 		case UNLOCK:
@@ -288,10 +295,10 @@ public class CoinGame {
 		if (!validMove) {
 			// If outside of valid room, see if currently in a tunnel
 			boolean inTunnel = false;
-			for (Tunnel tunnel : state.playerToTunnels.get(player.id)) {
+			for (TunnelSegment tunnel : state.playerToTunnels.get(player.id)) {
 				
-				Vec2 tunnelStart = new Vec2(tunnel.x1, tunnel.y1);
-				Vec2 tunnelEnd = new Vec2(tunnel.x2, tunnel.y2)/*; semicolon sus ඞ*/;
+				Vec2 tunnelStart = new Vec2(tunnel.node1.x, tunnel.node1.y);
+				Vec2 tunnelEnd = new Vec2(tunnel.node2.x, tunnel.node2.y)/*; semicolon sus ඞ*/;
 				Vec2 tunnelVec = tunnelEnd.minus(tunnelStart);
 				
 				double tunnelLength = tunnelEnd.minus(tunnelStart).magnitude();

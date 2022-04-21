@@ -4,12 +4,14 @@ import java.sql.*;
 import java.util.*;
 
 import ok.games.coingame.*;
+import ok.games.coingame.tunnels.*;
 
 public class CoinDB {
 	
 	private static final String PLAYERS_TABLE = "coingameplayers";
 	private static final String COINS_TABLE = "coingamecoins";
-	private static final String TUNNELS_TABLE = "coingametunnels";
+	private static final String TUNNEL_NODES_TABLE = "coingametunnelnodes";
+	private static final String TUNNEL_SEGMENTS_TABLE = "coingametunnelsegments";
 
 	private Connection connection;
 
@@ -30,13 +32,29 @@ public class CoinDB {
 			+ " value integer NOT NULL DEFAULT 1\n"
 			+ ");";
 
-	private static final String createTunnelsTable = 
-			"CREATE TABLE IF NOT EXISTS " + TUNNELS_TABLE + " (\n"
-			+ "	id SERIAL PRIMARY KEY,\n"
-			+ "	x1 integer NOT NULL DEFAULT 0,\n"
-			+ "	y1 integer NOT NULL DEFAULT 0,\n"
-			+ "	x2 integer NOT NULL DEFAULT 0,\n"
-			+ "	y2 integer NOT NULL DEFAULT 0,\n"
+//	private static final String createTunnelsTable = 
+//			"CREATE TABLE IF NOT EXISTS " + TUNNELS_TABLE + " (\n"
+//			+ "	id SERIAL PRIMARY KEY,\n"
+//			+ "	x1 integer NOT NULL DEFAULT 0,\n"
+//			+ "	y1 integer NOT NULL DEFAULT 0,\n"
+//			+ "	x2 integer NOT NULL DEFAULT 0,\n"
+//			+ "	y2 integer NOT NULL DEFAULT 0,\n"
+//			+ " playerid integer NOT NULL\n"
+//			+ ");";
+	
+	private static final String createTunnelNodesTable = 
+			"CREATE TABLE IF NOT EXISTS " + TUNNEL_NODES_TABLE + "(\n"
+			+ " id SERIAL PRIMARY KEY,\n"
+			+ " x integer NOT NULL,\n"
+			+ " y integer NOT NULL,\n"
+			+ " playerid integer NOT NULL\n"
+			+ ");";
+
+	private static final String createTunnelSegmentsTable = 
+			"CREATE TABLE IF NOT EXISTS " + TUNNEL_SEGMENTS_TABLE + "(\n"
+			+ " id SERIAL PRIMARY KEY,\n"
+			+ " nodeid1 integer NOT NULL,\n"
+			+ " nodeid2 integer NOT NULL,\n"
 			+ " playerid integer NOT NULL\n"
 			+ ");";
 	
@@ -81,14 +99,17 @@ public class CoinDB {
 			getPlayerInfoStatement = connection.prepareStatement(getPlayerInfo);
 			insertPlayerInfoStatement = connection.prepareStatement(insertPlayerInfo);
 			updatePlayerInfoStatement = connection.prepareStatement(updatePlayerInfo);
+			
 			insertCoinStatement = connection.prepareStatement(insertCoin, Statement.RETURN_GENERATED_KEYS);
 			getCoinsStatement = connection.prepareStatement(getCoins);
 			getCoinsInRangeStatement = connection.prepareStatement(getCoinsInRange);
 			deleteCoinStatement = connection.prepareStatement(deleteCoin);
 			getCoinStatement = connection.prepareStatement(getCoin);
 			
-			insertTunnelStatement = connection.prepareStatement(insertTunnel);
-			selectTunnelStatement = connection.prepareStatement(selectTunnels);
+			selectTunnelNodesStatement = connection.prepareStatement(selectTunnelNodes);
+			selectTunnelSegmentsStatement = connection.prepareStatement(selectTunnelSegments);
+			insertTunnelNodeStatement = connection.prepareStatement(insertTunnelNode);
+			insertTunnelSegmentStatement = connection.prepareStatement(insertTunnelSegment);
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -121,13 +142,50 @@ public class CoinDB {
 			}
 		}
 
-		if (!DBUtil.doesTableExist(TUNNELS_TABLE)) {
+//		if (!DBUtil.doesTableExist(TUNNELS_TABLE)) {
+//			try (Statement stmt = connection.createStatement()) {
+//				stmt.execute(createTunnelsTable);
+//			} catch (SQLException e) {
+//				e.printStackTrace();
+//			}
+//		}
+
+		if (!DBUtil.doesTableExist(TUNNEL_NODES_TABLE)) {
 			try (Statement stmt = connection.createStatement()) {
-				stmt.execute(createTunnelsTable);
+				stmt.execute(createTunnelNodesTable);
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
 		}
+
+		if (!DBUtil.doesTableExist(TUNNEL_SEGMENTS_TABLE)) {
+			try (Statement stmt = connection.createStatement()) {
+				stmt.execute(createTunnelSegmentsTable);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+
+	private static final String getMaxIDFrom = "SELECT MAX(id) FROM ";
+	private int getMaxIdFrom(String table) {
+		try (Statement stmt = connection.createStatement();
+				ResultSet rs = stmt.executeQuery(getMaxIDFrom + table)) {
+			while (rs.next()) {
+				int max = rs.getInt(1);
+				System.err.println(max);
+				return max;
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return 0;
+	}
+	public int getMaxTunnelNodeId() {
+		return getMaxIdFrom(TUNNEL_NODES_TABLE);
+	}
+	public int getMaxTunnelSegmentId() {
+		return getMaxIdFrom(TUNNEL_SEGMENTS_TABLE);
 	}
 
 	private static final String getPlayerInfo = 
@@ -258,60 +316,75 @@ public class CoinDB {
 		}
 	}
 
-	private static final String insertTunnel = 
-			"INSERT INTO " + TUNNELS_TABLE + "(id, x1, y1, x2, y2, playerid) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
-	private PreparedStatement insertTunnelStatement;
-	public void insertTunnel(Tunnel tunnel) {
+	private static final String insertTunnelNode = 
+			"INSERT INTO " + TUNNEL_NODES_TABLE + "(id, x, y, playerid) VALUES(?, ?, ?, ?) ON CONFLICT DO NOTHING";
+	private PreparedStatement insertTunnelNodeStatement;
+	public void insertTunnelNode(TunnelNode node) {
 		try {
-			insertTunnelStatement.setInt(1, tunnel.id);
-			insertTunnelStatement.setInt(2, tunnel.x1);
-			insertTunnelStatement.setInt(3, tunnel.y1);
-			insertTunnelStatement.setInt(4, tunnel.x2);
-			insertTunnelStatement.setInt(5, tunnel.y2);
-			insertTunnelStatement.setInt(6, tunnel.playerid);
-			insertTunnelStatement.execute();
+			insertTunnelNodeStatement.setInt(1, node.id);
+			insertTunnelNodeStatement.setInt(2, node.x);
+			insertTunnelNodeStatement.setInt(3, node.y);
+			insertTunnelNodeStatement.setInt(4, node.playerid);
+			insertTunnelNodeStatement.execute();
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-	}
-	
-	private static final String getMaxTunnelID = "SELECT MAX(id) FROM " + TUNNELS_TABLE;
-	public int getMaxTunnelID() {
-		try (Statement stmt = connection.createStatement();
-				ResultSet rs = stmt.executeQuery(getMaxTunnelID)) {
-			while (rs.next()) {
-				int max = rs.getInt(1);
-				System.err.println(max);
-				return max;
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return 0;
 	}
 
-	private static final String selectTunnels = 
-			"SELECT * FROM " + TUNNELS_TABLE + " WHERE playerid=?";
-	private PreparedStatement selectTunnelStatement;
-	public List<Tunnel> getTunnelsOfPlayer(int playerid) {
-		List<Tunnel> list = new ArrayList<>();
+	private static final String insertTunnelSegment = 
+			"INSERT INTO " + TUNNEL_SEGMENTS_TABLE + "(id, nodeid1, nodeid2, playerid) VALUES(?, ?, ?, ?) ON CONFLICT DO NOTHING";
+	private PreparedStatement insertTunnelSegmentStatement;
+	public void insertTunnelSegment(TunnelSegment segment) {
 		try {
-			selectTunnelStatement.setInt(1, playerid);
-			try (ResultSet rs = selectTunnelStatement.executeQuery()) {
+			insertTunnelSegmentStatement.setInt(1, segment.id);
+			insertTunnelSegmentStatement.setInt(2, segment.node1.id);
+			insertTunnelSegmentStatement.setInt(3, segment.node2.id);
+			insertTunnelSegmentStatement.setInt(4, segment.playerid);
+			insertTunnelSegmentStatement.execute();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private static final String selectTunnelNodes = 
+			"SELECT * FROM " + TUNNEL_NODES_TABLE + " WHERE playerid=?";
+	private PreparedStatement selectTunnelNodesStatement;
+	private static final String selectTunnelSegments = 
+			"SELECT * FROM " + TUNNEL_SEGMENTS_TABLE + " WHERE playerid=?";
+	private PreparedStatement selectTunnelSegmentsStatement;
+	public List<TunnelSegment> getTunnelsOfPlayer(int playerid, Map<Integer, TunnelNode> nodes) {
+		List<TunnelSegment> segmentList = new ArrayList<>();
+		try {
+			// load tunnel nodes belonging to player
+			selectTunnelNodesStatement.setInt(1, playerid);
+			try (ResultSet rs = selectTunnelNodesStatement.executeQuery()) {
 				while (rs.next()) {
-					list.add(new Tunnel(
-							rs.getInt("id"),
-							rs.getInt("x1"),
-							rs.getInt("y1"),
-							rs.getInt("x2"),
-							rs.getInt("y2"),
-							rs.getInt("playerid")));
+					TunnelNode node = new TunnelNode(rs.getInt("id"), 
+													rs.getInt("x"), 
+													rs.getInt("y"), 
+													playerid);
+					nodes.put(node.id, node);
 				}
 			}
+			// load tunnel segments belonging to player
+			selectTunnelSegmentsStatement.setInt(1, playerid);
+			try (ResultSet rs = selectTunnelSegmentsStatement.executeQuery()) {
+				while (rs.next()) {
+					int id = rs.getInt("id");
+					int nodeid1 = rs.getInt("nodeid1");
+					int nodeid2 = rs.getInt("nodeid2");
+					TunnelSegment segment = new TunnelSegment(id, 
+															nodes.get(nodeid1), 
+															nodes.get(nodeid2),
+															playerid);
+					segmentList.add(segment);
+				}
+			}
+			
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
 		}
-		return list;
+		return segmentList;
 	}
 	
 //	public void collected(int playerid, int coinid) {

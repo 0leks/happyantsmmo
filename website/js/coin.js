@@ -103,6 +103,7 @@ function sendMove(x, y) {
 function sendNewTunnel(newTunnelAt) {
     let data = {
         'type': 'TUNNEL',
+        'nodeid1': 0,
         'x': newTunnelAt[0],
         'y': newTunnelAt[1]
     }
@@ -618,8 +619,8 @@ function animateScene() {
         textContext.lineWidth = tunnelSize;
         // textContext.lineCap = 'square';
         textContext.beginPath();
-        textContext.moveTo(tunnel.x1, -tunnel.y1);
-        textContext.lineTo(tunnel.x2, -tunnel.y2);
+        textContext.moveTo(tunnel.node1.x, -tunnel.node1.y);
+        textContext.lineTo(tunnel.node2.x, -tunnel.node2.y);
         textContext.stroke(); 
     });
 
