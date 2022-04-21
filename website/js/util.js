@@ -12,6 +12,8 @@ let ADMIN_ID = 1;
 
 // get elements using id('<elementid>');
 let id = id => document.getElementById(id);
+let hideElement = element => element.classList.add('hidden');
+let unhideElement = element => element.classList.remove('hidden');
 
 function getSessionToken() {
     if ('session' in localStorage) {

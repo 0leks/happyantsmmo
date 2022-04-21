@@ -83,6 +83,14 @@ function sendStopGame() {
     ws.send(JSON.stringify(jsonData));
 }
 
+function homeTeleport() {
+    let jsonData = {
+        'type': 'TELEPORT',
+        'target': 'home'
+    };
+    ws.send(JSON.stringify(jsonData));
+}
+
 function sendMove(x, y) {
     let data = {
         'type': 'MOVE',
@@ -285,7 +293,6 @@ function placeTunnel() {
 function unlockTunneling() {
     let tosend = JSON.stringify({
         'type': 'UNLOCK',
-        'session': getSessionToken(),
         'skill': 'tunneling'
     });
     console.log('sending ' + tosend);
@@ -609,6 +616,7 @@ function animateScene() {
         let tunnelSize = 50*WORLD_SCALE;
         textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
         textContext.lineWidth = tunnelSize;
+        // textContext.lineCap = 'square';
         textContext.beginPath();
         textContext.moveTo(tunnel.x1, -tunnel.y1);
         textContext.lineTo(tunnel.x2, -tunnel.y2);

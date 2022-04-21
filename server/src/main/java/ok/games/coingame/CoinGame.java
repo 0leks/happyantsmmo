@@ -206,9 +206,19 @@ public class CoinGame {
 		sendToOne(obj.toString(), idToContextMap.get(player.id));
 	}
 	
-	public void unlockSkill(PlayerInfo player, String skill) {
+	private void unlockSkill(PlayerInfo player, String skill) {
 		if (skill.equals("tunneling")) {
 			state.playerUnlocksTunneling(player);
+		}
+	}
+	
+	private void teleport(PlayerInfo player, String target) {
+		if (target.equals("home")) {
+			playerTargetLocations.remove(player);
+			player.x = 0;
+			player.y = 0;
+			changedLocations.add(player.id);
+			sendLocations(false);
 		}
 	}
 	
@@ -242,6 +252,10 @@ public class CoinGame {
 		
 		case UNLOCK:
 			unlockSkill(player, obj.getString("skill"));
+			break;
+			
+		case TELEPORT:
+			teleport(player, obj.getString("target"));
 			break;
 			
 		default:
