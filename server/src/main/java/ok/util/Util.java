@@ -8,17 +8,21 @@ public class Util {
 		return (int)(System.currentTimeMillis() - startTime);
 	}
 	
+	/**
+	 * 
+	 * @return random number between -1 and 1
+	 */
 	public static final double gaussian() {
-		return (Math.random() + Math.random() + Math.random() + Math.random()) / 4;
+		return (Math.random() + Math.random() + Math.random() + Math.random()) / 2 - 1;
 	}
 	
 	public static final double reverseGaussian() {
 		double g = gaussian();
-		if (g < 0.5) {
-			return 0.5 - g;
+		if (g < 0) {
+			return -1 - g;
 		}
 		else {
-			return 1.5 - g;
+			return 1 - g;
 		}
 	}
 	

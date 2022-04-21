@@ -396,33 +396,39 @@ public class CoinGame {
 		}
 	}
 	
-	private void addCoin() {
-		Rectangle room0 = mapRooms.get(0);
-		int x = (int)(Util.gaussian() * room0.width - room0.x);
-		int y = (int)(Util.gaussian() * room0.height - room0.y);
-		double skewed = Math.abs(Util.gaussian() - 0.5) * 2;
-		int value = (int)(skewed * 9) + 1;
+	private Vec2 getPosForCoinInRoom(Rectangle room, double spawnRangeMultiplier) {
+		int centerx = room.x + room.width/2;
+		int offsetx = (int) (Util.gaussian() * room.width * spawnRangeMultiplier / 2);
+		int coinx = centerx + offsetx;
 		
-		Coin coin = state.addNewCoin(x, y, value);
+		int centery = room.y + room.height/2;
+		int offsety = (int) (Util.gaussian() * room.height * spawnRangeMultiplier / 2);
+		int coiny = centery + offsety;
+		return new Vec2(coinx, coiny);
+	}
+	
+	private int getValueForCoin(int min, int max) {
+		return min + (int)(Math.abs(Util.gaussian()) * (max - min));
+	}
+
+	private void addCoin() {
+		Vec2 room0pos = getPosForCoinInRoom(mapRooms.get(0), 1.2);
+		int room0value = getValueForCoin(1, 10);
+		
+		Coin coin = state.addNewCoin(room0pos.x, room0pos.y, room0value);
 		newCoins.add(coin);
 		
 		if (Math.random() < 0.4) {
 			Rectangle room1 = mapRooms.get(1 + (int)(Math.random() * (mapRooms.size() - 1)));
-			int x1 = (int)(Util.gaussian() * room1.width + room1.x);
-			int y1 = (int)(Util.gaussian() * room1.height + room1.y);
-			double skewed1 = Math.abs(Util.gaussian() - 0.5) * 2;
-			int value1 = (int)(skewed1 * 15) + 5;
+			Vec2 room1pos = getPosForCoinInRoom(room1, 1.2);
+			int room1value = getValueForCoin(5, 20);
 
 			if (Math.random() < 0.001) {
-				x1 = (int)(Util.reverseGaussian() * room1.width + room1.x);
-				y1 = (int)(Util.reverseGaussian() * room1.height + room1.y);
-				value1 = (int)(80 + 20*Util.gaussian());
+				room1pos = getPosForCoinInRoom(room1, 1.3);
+				room1value = getValueForCoin(80, 100);
 			}
-			Coin coin1 = state.addNewCoin(x1, y1, value1);
+			Coin coin1 = state.addNewCoin(room1pos.x, room1pos.y, room1value);
 			newCoins.add(coin1);
-		}
-		if (Math.random() < 0.01) {
-			
 		}
 	}
 	
