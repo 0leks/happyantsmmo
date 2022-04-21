@@ -73,11 +73,10 @@ public class CoinGame {
 		databaseSaver.start();
 	}
 	
-	private void stopGame(WebSocketSession ctx) {
-		PlayerInfo info = contextToPlayerInfoMap.get(ctx);
-		System.out.println(info + " tried to stop game");
+	private void stopGame(PlayerInfo player) {
+		System.out.println(player + " tried to stop game");
 		// only admin account can stop the game
-		if (info == null || info.id != 1) {
+		if (player.id != 1) {
 			return;
 		}
 		
@@ -190,55 +189,63 @@ public class CoinGame {
 		}
 	}
 	
-	public void receiveMove(WebSocketSession ctx, int x, int y) {
-		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
-		if (player == null) {
-			return;
-		}
+	public void receiveMove(PlayerInfo player, int x, int y) {
 		movePlayer(player);
 		playerTargetLocations.put(player, new Vec3(x, y, currentTime()));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
 	
-	public void receiveTunnel(WebSocketSession ctx, int x, int y) {
-		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
-		if (player == null) {
-			return;
-		}
+	public void receiveTunnel(PlayerInfo player, int x, int y) {
 		Tunnel tunnel = state.createNewTunnel(x, y, player.x, player.y, player.id);
 		JSONObject obj = new JSONObject();
 		obj.put("type", MessageType.TUNNEL);
 		JSONArray arr = new JSONArray();
 		arr.put(new JSONObject(tunnel));
 		obj.put("tunnels", arr);
-		sendToOne(obj.toString(), ctx);
+		sendToOne(obj.toString(), idToContextMap.get(player.id));
+	}
+	
+	public void unlockSkill(PlayerInfo player, String skill) {
+		if (skill.equals("tunneling")) {
+			state.playerUnlocksTunneling(player);
+		}
 	}
 	
 	public void receiveMessage(WebSocketSession ctx, TextMessage textMessage) {
 		String message = textMessage.getPayload();
-		JSONObject obj = new JSONObject(message);
+		JSONObject obj = new JSONObject(message); 
 		MessageType type = MessageType.valueOf(obj.getString("type"));
 		
-		switch(type) {
-		case HELLO:
+		if (type == MessageType.HELLO) {
 			newConnection(ctx, obj.getString("session"));
-			break;
-			
+			return;
+		}
+		
+		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
+		if (player == null) {
+			return;
+		}
+		
+		switch(type) {
 		case MOVE:
-			receiveMove(ctx, obj.getInt("x"), obj.getInt("y"));
+			receiveMove(player, obj.getInt("x"), obj.getInt("y"));
 			break;
 
 		case STOP:
-			stopGame(ctx);
+			stopGame(player);
 			break;
 		
 		case TUNNEL:
-			receiveTunnel(ctx, obj.getInt("x"), obj.getInt("y"));
+			receiveTunnel(player, obj.getInt("x"), obj.getInt("y"));
+			break;
+		
+		case UNLOCK:
+			unlockSkill(player, obj.getString("skill"));
 			break;
 			
 		default:
-			System.err.println("UNKNOWN MESSAGE TYPE RECEIVED");
+			System.err.println("UNKNOWN MESSAGE TYPE RECEIVED: " + type);
 		}
 	}
 	
@@ -350,7 +357,7 @@ public class CoinGame {
 			}
 		}
 		changedLocations.add(player.id);
-		state.updatePlayerLocation(player);
+		state.updatePlayerInfo(player);
 	}
 	
 	private Vec3 getInterpolatedPlayerPosition(PlayerInfo player) {

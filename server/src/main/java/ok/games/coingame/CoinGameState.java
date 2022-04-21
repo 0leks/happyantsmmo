@@ -83,7 +83,7 @@ public class CoinGameState {
 		return playerInfo;
 	}
 	
-	public void updatePlayerLocation(PlayerInfo info) {
+	public void updatePlayerInfo(PlayerInfo info) {
 		loadedPlayerInfo.put(info.id, info);
 		if (autoWrite) {
 			DB.coinsDB.updatePlayerInfo(info);
@@ -119,10 +119,18 @@ public class CoinGameState {
 		loadedCoins.remove(coin.id);
 		collectedCoins.add(coin);
 		player.numcoins += coin.value;
-		updatePlayerLocation(player);
+		updatePlayerInfo(player);
 		
 		if (autoWrite) {
 			DB.coinsDB.deleteCoin(coin);
+		}
+	}
+	
+	public void playerUnlocksTunneling(PlayerInfo player) {
+		if (player.tunnelingLevel == 0 && player.numcoins >= Constants.UNLOCK_TUNNELING_COST) {
+			player.numcoins -= 1000;
+			player.tunnelingLevel = 1;
+			updatePlayerInfo(player);
 		}
 	}
 	

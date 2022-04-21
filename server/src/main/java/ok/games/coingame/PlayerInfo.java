@@ -9,12 +9,14 @@ public class PlayerInfo {
 	public int numcoins;
 	public int x;
 	public int y;
+	public int tunnelingLevel;
 
-	public PlayerInfo(int id, int numcoins, int x, int y) {
+	public PlayerInfo(int id, int numcoins, int x, int y, int tunnelingLevel) {
 		this.id = id;
 		this.numcoins = numcoins;
 		this.x = x;
 		this.y = y;
+		this.tunnelingLevel = tunnelingLevel;
 	}
 
 	public int getId() {
@@ -44,9 +46,15 @@ public class PlayerInfo {
 	public void setY(int y) {
 		this.y = y;
 	}
-	
+	public int getTunnelingLevel() {
+		return tunnelingLevel;
+	}
+	public void setTunnelingLevel(int tunnelingLevel) {
+		this.tunnelingLevel = tunnelingLevel;
+	}
+
 	@Override
 	public String toString() {
-		return String.format("{%d, %d, %d, %d}", id, numcoins, x, y);
+		return String.format("{%d, %d, %d, %d, %d}", id, numcoins, x, y, tunnelingLevel);
 	}
 }

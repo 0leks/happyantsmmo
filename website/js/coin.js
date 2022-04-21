@@ -229,6 +229,7 @@ function receiveMessage(msg) {
                 playerPositions[player.id] = [player.x, player.y];
                 updatePlayerInfo(player.id, 'id', player.id);
                 updatePlayerInfo(player.id, 'numcoins', player.numcoins);
+                updatePlayerInfo(player.id, 'tunnelingLevel', player.tunnelingLevel);
 
 
                 if ('target' in player) {
@@ -269,6 +270,7 @@ function playersDisconnected(ids) {
     });
 }
 
+let UNLOCK_TUNNELING_COST = 1000;
 let TUNNEL_COST = 1100;
 let placingTunnel = false;
 let placingTunnelAt = null;
@@ -280,20 +282,39 @@ function placeTunnel() {
     }
 }
 
+function unlockTunneling() {
+    let tosend = JSON.stringify({
+        'type': 'UNLOCK',
+        'session': getSessionToken(),
+        'skill': 'tunneling'
+    });
+    console.log('sending ' + tosend);
+    ws.send(tosend);
+}
+
 window.addEventListener("load", startup, false);
 
 let placeTunnelButton = id("tunnelButton");
+let unlockTunnelingButton = id("unlockTunnelingButton");
 function updatePlaceTunnelButton() {
     if (placingTunnel) {
         placeTunnelButton.disabled = true;
         return;
     }
-    if (playerInfos[myID].numcoins >= TUNNEL_COST) {
+    if (playerInfos[myID].tunnelingLevel > 0) {
         placeTunnelButton.disabled = false;
         placeTunnelButton.classList.remove('hidden');
+        
+        hideElement(unlockTunnelingButton);
+        unlockTunnelingButton.disabled = true;
     }
     else {
         placeTunnelButton.disabled = true;
+        
+        if (playerInfos[myID].numcoins >= UNLOCK_TUNNELING_COST) {
+            unhideElement(unlockTunnelingButton);
+            unlockTunnelingButton.disabled = false;
+        }
     }
 }
 
@@ -303,7 +324,7 @@ function updatePlayerInfo(pid, key, value) {
     }
     playerInfos[pid][key] = value;
 
-    if (pid == myID && key == 'numcoins') {
+    if (pid == myID && (key == 'numcoins' || key == 'tunnelingLevel')) {
         updatePlaceTunnelButton();
     }
 }
@@ -579,6 +600,7 @@ function animateScene() {
             // textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText(getPlayerInfo(id, 'handle'), playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText('' + getPlayerInfo(id, 'numcoins'), playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
+            textContext.fillText('tunnel: ' + getPlayerInfo(id, 'tunnelingLevel'), playerPositions[id][0], -playerPositions[id][1] + 40*WORLD_SCALE);
         }
     }
     textContext.fillText(loadingMessage, 0, 0);
