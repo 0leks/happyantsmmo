@@ -28,7 +28,8 @@ let COIN_SIZE = 200;
 let coinPositions = {};
 let coinValues = {};
 
-let tunnels = [];
+let tunnelNodes = {};
+let tunnelSegments = [];
 
 // Rendering data shared with the
 // scalers.
@@ -99,13 +100,21 @@ function sendMove(x, y) {
     }
     ws.send(JSON.stringify(data));
 }
-
-function sendNewTunnel(newTunnelAt) {
-    let data = {
-        'type': 'TUNNEL',
-        'nodeid1': 0,
-        'x': newTunnelAt[0],
-        'y': newTunnelAt[1]
+function sendNewTunnel(nodeid1, nodeposition1, nodeid2, nodeposition2) {
+    let data = {'type': 'TUNNEL'};
+    if (nodeid1) {
+        data.nodeid1 = nodeid1;
+    }
+    else {
+        data.x1 = nodeposition1[0];
+        data.y1 = nodeposition1[1];
+    }
+    if (nodeid2) {
+        data.nodeid2 = nodeid2;
+    }
+    else {
+        data.x2 = nodeposition2[0];
+        data.y2 = nodeposition2[1];
     }
     ws.send(JSON.stringify(data));
 }
@@ -122,10 +131,21 @@ function screenToGamePos(screenPos) {
 function mouseMoved(e) {
     mousePos = screenToGamePos(e);
 }
+function getTunnelNodeIdAtPoint(point) {
+    for (const [id, node] of Object.entries(tunnelNodes)) {
+        let distance = Math.sqrt( (node.x - point[0]) ** 2 + (node.y - point[1]) ** 2 );
+        let tunnelSize = 50*WORLD_SCALE / 2;
+        if (distance < tunnelSize) {
+            return node.id;
+        }
+    }
+    return null;
+}
 function mousePressed(e) {
 
     if (e.button == 2) {
-        placingTunnelAt = null;
+        placingNewTunnelFromNode = null;
+        placingNewTunnelFromLocation = null;
         placingTunnel = false;
         updatePlaceTunnelButton();
         return;
@@ -146,14 +166,22 @@ function mousePressed(e) {
         sendMove(targetPos[0], targetPos[1]);
     }
     else {
-        placingTunnelAt = targetPos;
+        let tunnelNodeId = getTunnelNodeIdAtPoint(targetPos);
+        if (tunnelNodeId) {
+            placingNewTunnelFromNode = tunnelNodeId;
+        }
+        else {
+            placingNewTunnelFromLocation = targetPos;
+        }
     }
 }
 function mouseReleased(e) {
     if (placingTunnel) {
-        if (placingTunnelAt) {
-            sendNewTunnel(placingTunnelAt);
-            placingTunnelAt = null;
+        if (placingNewTunnelFromNode || placingNewTunnelFromLocation) {
+            let tunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
+            sendNewTunnel(placingNewTunnelFromNode, placingNewTunnelFromLocation, tunnelNodeId, mousePos);
+            placingNewTunnelFromNode = null;
+            placingNewTunnelFromLocation = null;
         }
     }
 }
@@ -183,6 +211,23 @@ function receiveCoinMessage(data) {
                 coinValues[coin.id] = '1';
             }
         }
+    });
+}
+
+function receiveTunnels(data) {
+    console.log(data);
+    data.tunnels.forEach(tunnel => {
+        if (!(tunnel.node1.id in tunnelNodes)) {
+            tunnelNodes[tunnel.node1.id] = tunnel.node1;
+        }
+        if (!(tunnel.node2.id in tunnelNodes)) {
+            tunnelNodes[tunnel.node2.id] = tunnel.node2;
+        }
+        tunnelSegments.push({
+            'id': tunnel.id,
+            'nodeid1': tunnel.node1.id,
+            'nodeid2': tunnel.node2.id
+        });
     });
 }
 
@@ -222,10 +267,7 @@ function receiveMessage(msg) {
         console.log(playerInfos);
     }
     else if (data.type == 'TUNNEL') {
-        console.log(data);
-        data.tunnels.forEach(tunnel => {
-            tunnels.push(tunnel);
-        });
+        receiveTunnels(data);
     }
     else if (data.type == 'COIN') {
         receiveCoinMessage(data);
@@ -282,7 +324,8 @@ function playersDisconnected(ids) {
 let UNLOCK_TUNNELING_COST = 1000;
 let TUNNEL_COST = 1100;
 let placingTunnel = false;
-let placingTunnelAt = null;
+let placingNewTunnelFromNode = null;
+let placingNewTunnelFromLocation = null;
 function placeTunnel() {
     if (playerInfos[myID].numcoins >= TUNNEL_COST) {
         console.log("Placing tunnel");
@@ -613,32 +656,54 @@ function animateScene() {
     }
     textContext.fillText(loadingMessage, 0, 0);
     
-    tunnels.forEach(tunnel => {
+    tunnelSegments.forEach(tunnel => {
         let tunnelSize = 50*WORLD_SCALE;
         textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
         textContext.lineWidth = tunnelSize;
         // textContext.lineCap = 'square';
         textContext.beginPath();
-        textContext.moveTo(tunnel.node1.x, -tunnel.node1.y);
-        textContext.lineTo(tunnel.node2.x, -tunnel.node2.y);
-        textContext.stroke(); 
+        textContext.moveTo(tunnelNodes[tunnel.nodeid1].x, -tunnelNodes[tunnel.nodeid1].y);
+        textContext.lineTo(tunnelNodes[tunnel.nodeid2].x, -tunnelNodes[tunnel.nodeid2].y);
+        textContext.stroke();
+        textContext.strokeStyle = 'rgba(255, 255, 255, 1)';
+        textContext.lineWidth = WORLD_SCALE;
+        textContext.stroke();
     });
 
-    if (placingTunnel) {
+    for (const [id, node] of Object.entries(tunnelNodes)) {
+        let tunnelSize = 50*WORLD_SCALE/2;
+        textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
+        textContext.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        textContext.lineWidth = WORLD_SCALE;
+        textContext.beginPath();
+        textContext.arc(node.x, -node.y, tunnelSize, 0, 2 * Math.PI);
+        textContext.fill();
+        textContext.stroke();
+        textContext.fillStyle = 'rgba(255, 255, 255, 1)';
+        textContext.beginPath();
+        textContext.arc(node.x, -node.y, tunnelSize/5, 0, 2 * Math.PI);
+        textContext.fill();
+    }
+
+    if (placingTunnel && placingNewTunnelFromNode) {
         let myPos = getMyPosition(myID);
         let tunnelPos = mousePos;
-        if (placingTunnelAt) {
-            tunnelPos = placingTunnelAt;
-        }
-
         let tunnelSize = 50*WORLD_SCALE;
-        // textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
-        // textContext.fillRect(tunnelPos[0] - tunnelSize/2, -tunnelPos[1] - tunnelSize/2, tunnelSize, tunnelSize);
         textContext.lineWidth = tunnelSize;
         textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-
         textContext.beginPath();
-        textContext.moveTo(myPos[0], -myPos[1]);
+        textContext.moveTo(tunnelNodes[placingNewTunnelFromNode].x, -tunnelNodes[placingNewTunnelFromNode].y);
+        textContext.lineTo(tunnelPos[0], -tunnelPos[1]);
+        textContext.stroke(); 
+    }
+    if (placingTunnel && placingNewTunnelFromLocation) {
+        let myPos = getMyPosition(myID);
+        let tunnelPos = mousePos;
+        let tunnelSize = 50*WORLD_SCALE;
+        textContext.lineWidth = tunnelSize;
+        textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+        textContext.beginPath();
+        textContext.moveTo(placingNewTunnelFromLocation[0], -placingNewTunnelFromLocation[1]);
         textContext.lineTo(tunnelPos[0], -tunnelPos[1]);
         textContext.stroke(); 
     }

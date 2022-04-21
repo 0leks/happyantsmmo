@@ -197,13 +197,35 @@ public class CoinGame {
 		sendLocations(false);
 	}
 	
-	public void receiveTunnel(PlayerInfo player, int nodeid1, int x, int y) {
-		if (!state.doesTunnelNodeExist(nodeid1)) {
-			TunnelNode node1 = state.createNewTunnelNode(player.x, player.y, player.id);
-			nodeid1 = node1.id;
+	public void receiveTunnel(PlayerInfo player, JSONObject message) {
+		int nodeid1 = -1;
+		int nodeid2 = -1;
+		if (message.has("nodeid1")) {
+			nodeid1 = message.getInt("nodeid1");
 		}
-		TunnelNode node2 = state.createNewTunnelNode(x, y, player.id);
-		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, node2.id, player.id);
+		else {
+			int x = message.getInt("x1");
+			int y = message.getInt("y1");
+			TunnelNode node = state.createNewTunnelNode(x, y, player.id);
+			nodeid1 = node.id;
+		}
+		if (message.has("nodeid2")) {
+			nodeid2 = message.getInt("nodeid2");
+		}
+		else {
+			int x = message.getInt("x2");
+			int y = message.getInt("y2");
+			TunnelNode node = state.createNewTunnelNode(x, y, player.id);
+			nodeid2 = node.id;
+		}
+		
+		if (!state.doesTunnelNodeExist(nodeid1)) {
+			System.err.println("ERROR MAKING TUNNEL");
+		}
+		if (!state.doesTunnelNodeExist(nodeid2)) {
+			System.err.println("ERROR MAKING TUNNEL");
+		}
+		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, nodeid2, player.id);
 		
 		JSONObject obj = new JSONObject();
 		obj.put("type", MessageType.TUNNEL);
@@ -254,7 +276,7 @@ public class CoinGame {
 			break;
 		
 		case TUNNEL:
-			receiveTunnel(player, obj.getInt("nodeid1"), obj.getInt("x"), obj.getInt("y"));
+			receiveTunnel(player, obj);
 			break;
 		
 		case UNLOCK:
