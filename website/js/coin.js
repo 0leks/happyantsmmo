@@ -356,17 +356,27 @@ window.addEventListener("load", startup, false);
 
 let placeTunnelButton = id("tunnelButton");
 let unlockTunnelingButton = id("unlockTunnelingButton");
+let tunnelingSkillButton = id("skillInfoButton");
 function updatePlaceTunnelButton() {
+    id("tunnelingLevel").innerHTML = playerInfos[myID].tunnelingLevel;
     if (placingTunnel) {
         placeTunnelButton.disabled = true;
         return;
     }
     if (playerInfos[myID].tunnelingLevel > 0) {
         placeTunnelButton.disabled = false;
-        placeTunnelButton.classList.remove('hidden');
+        unhideElement(placeTunnelButton)
         
-        hideElement(unlockTunnelingButton);
         unlockTunnelingButton.disabled = true;
+        hideElement(unlockTunnelingButton);
+
+        if (playerInfos[myID].tunnelingLevel > 1) {
+            unhideElement(tunnelingSkillButton);
+            tunnelingSkillButton.disabled = false;
+        }
+        unhideElement(tunnelingSkillButton);
+        tunnelingSkillButton.disabled = false;
+
     }
     else {
         placeTunnelButton.disabled = true;
@@ -384,8 +394,10 @@ function updatePlayerInfo(pid, key, value) {
     }
     playerInfos[pid][key] = value;
 
-    if (pid == myID && (key == 'numcoins' || key == 'tunnelingLevel')) {
-        updatePlaceTunnelButton();
+    if (pid == myID) {
+        if(key == 'numcoins' || key == 'tunnelingLevel') {
+            updatePlaceTunnelButton();
+        }
     }
 }
 
@@ -703,7 +715,7 @@ function animateScene() {
             // textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText(getPlayerInfo(id, 'handle'), playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText('' + getPlayerInfo(id, 'numcoins'), playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
-            textContext.fillText('tunnel: ' + getPlayerInfo(id, 'tunnelingLevel'), playerPositions[id][0], -playerPositions[id][1] + 40*WORLD_SCALE);
+            // textContext.fillText('tunnel: ' + getPlayerInfo(id, 'tunnelingLevel'), playerPositions[id][0], -playerPositions[id][1] + 40*WORLD_SCALE);
         }
     }
     textContext.fillText(loadingMessage, 0, 0);
