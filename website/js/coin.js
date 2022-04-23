@@ -1,6 +1,7 @@
 
 let WORLD_SCALE = 10;
 let playerSpeed = 100*WORLD_SCALE;
+let tunnelSize = 50*WORLD_SCALE;
 
 
 let gl = null;
@@ -343,6 +344,14 @@ function unlockTunneling() {
     ws.send(tosend);
 }
 
+function openSkillInfo() {
+    unhideElement(id("skillInfo"));
+}
+
+function closeSkillInfo() {
+    hideElement(id("skillInfo"));
+}
+
 window.addEventListener("load", startup, false);
 
 let placeTunnelButton = id("tunnelButton");
@@ -585,6 +594,49 @@ function drawRoom(gl, uGlobalColor, color1, color2, position, scale) {
     drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale / 20);
 }
 
+function drawTunnelNode(node) {
+    textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
+    textContext.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    textContext.lineWidth = WORLD_SCALE;
+    textContext.beginPath();
+    textContext.arc(node.x, -node.y, tunnelSize/2, 0, 2 * Math.PI);
+    textContext.fill();
+    textContext.stroke();
+    textContext.fillStyle = 'rgba(255, 255, 255, 1)';
+    textContext.beginPath();
+    textContext.arc(node.x, -node.y, tunnelSize/10, 0, 2 * Math.PI);
+    textContext.fill();
+}
+
+function drawTunnelSegment(node1, node2) {
+    textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+    textContext.lineWidth = tunnelSize;
+    // textContext.lineCap = 'square';
+    textContext.beginPath();
+    textContext.moveTo(node1.x, -node1.y);
+    textContext.lineTo(node2.x, -node2.y);
+    textContext.stroke();
+    textContext.strokeStyle = 'rgba(255, 255, 255, 1)';
+    textContext.lineWidth = WORLD_SCALE;
+    textContext.stroke();
+}
+
+function drawTargetX(position) {
+    let x_size = PLAYER_SIZE/2;
+    textContext.strokeStyle = 'rgba(255, 60, 60, 0.5)';
+    textContext.lineWidth = 50;
+
+    textContext.beginPath();
+    textContext.moveTo(position.x + x_size, -position.y + x_size);
+    textContext.lineTo(position.x - x_size, -position.y - x_size);
+
+    textContext.moveTo(position.x + x_size, -position.y - x_size);
+    textContext.lineTo(position.x - x_size, -position.y + x_size);
+    textContext.stroke(); 
+}
+
+
+
 let cameraTranslate = [0, 0];
 function animateScene() {
 
@@ -657,71 +709,28 @@ function animateScene() {
     textContext.fillText(loadingMessage, 0, 0);
     
     tunnelSegments.forEach(tunnel => {
-        let tunnelSize = 50*WORLD_SCALE;
-        textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-        textContext.lineWidth = tunnelSize;
-        // textContext.lineCap = 'square';
-        textContext.beginPath();
-        textContext.moveTo(tunnelNodes[tunnel.nodeid1].x, -tunnelNodes[tunnel.nodeid1].y);
-        textContext.lineTo(tunnelNodes[tunnel.nodeid2].x, -tunnelNodes[tunnel.nodeid2].y);
-        textContext.stroke();
-        textContext.strokeStyle = 'rgba(255, 255, 255, 1)';
-        textContext.lineWidth = WORLD_SCALE;
-        textContext.stroke();
+        drawTunnelSegment(tunnelNodes[tunnel.nodeid1], tunnelNodes[tunnel.nodeid2]);
     });
 
     for (const [id, node] of Object.entries(tunnelNodes)) {
-        let tunnelSize = 50*WORLD_SCALE/2;
-        textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
-        textContext.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-        textContext.lineWidth = WORLD_SCALE;
-        textContext.beginPath();
-        textContext.arc(node.x, -node.y, tunnelSize, 0, 2 * Math.PI);
-        textContext.fill();
-        textContext.stroke();
-        textContext.fillStyle = 'rgba(255, 255, 255, 1)';
-        textContext.beginPath();
-        textContext.arc(node.x, -node.y, tunnelSize/5, 0, 2 * Math.PI);
-        textContext.fill();
+        drawTunnelNode(node);
     }
 
     if (placingTunnel && placingNewTunnelFromNode) {
-        let myPos = getMyPosition(myID);
-        let tunnelPos = mousePos;
-        let tunnelSize = 50*WORLD_SCALE;
-        textContext.lineWidth = tunnelSize;
-        textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-        textContext.beginPath();
-        textContext.moveTo(tunnelNodes[placingNewTunnelFromNode].x, -tunnelNodes[placingNewTunnelFromNode].y);
-        textContext.lineTo(tunnelPos[0], -tunnelPos[1]);
-        textContext.stroke(); 
+        drawTunnelSegment(tunnelNodes[placingNewTunnelFromNode], {x: mousePos[0], y: mousePos[1]});
     }
     if (placingTunnel && placingNewTunnelFromLocation) {
-        let myPos = getMyPosition(myID);
-        let tunnelPos = mousePos;
-        let tunnelSize = 50*WORLD_SCALE;
-        textContext.lineWidth = tunnelSize;
-        textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
-        textContext.beginPath();
-        textContext.moveTo(placingNewTunnelFromLocation[0], -placingNewTunnelFromLocation[1]);
-        textContext.lineTo(tunnelPos[0], -tunnelPos[1]);
-        textContext.stroke(); 
+        drawTunnelSegment({x: placingNewTunnelFromLocation[0], y: placingNewTunnelFromLocation[1]}, 
+                        {x: mousePos[0], y: mousePos[1]});
+        drawTunnelNode({x: placingNewTunnelFromLocation[0], y: placingNewTunnelFromLocation[1]})
+    }
+    
+    if (placingTunnel) {
+        drawTunnelNode({x: mousePos[0], y: mousePos[1]})
     }
 
     if (myID in playerTargetPositions) {
-        
-        let tar = playerTargetPositions[myID].to;
-        let x_size = PLAYER_SIZE/2;
-        textContext.strokeStyle = 'rgba(255, 60, 60, 0.5)';
-        textContext.lineWidth = 50;
-
-        textContext.beginPath();
-        textContext.moveTo(tar.x + x_size, -tar.y + x_size);
-        textContext.lineTo(tar.x - x_size, -tar.y - x_size);
-
-        textContext.moveTo(tar.x + x_size, -tar.y - x_size);
-        textContext.lineTo(tar.x - x_size, -tar.y + x_size);
-        textContext.stroke(); 
+        drawTargetX(playerTargetPositions[myID].to);
     }
 
     textContext.restore();
