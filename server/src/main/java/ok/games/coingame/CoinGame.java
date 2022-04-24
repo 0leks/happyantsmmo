@@ -28,6 +28,7 @@ public class CoinGame {
 	private static final int TICK_TIME = 300;
 	private static final int UPDATE_TIME = 2000;
 	private static final int PLAYER_SPEED = 1000;
+	private static final int TUNNEL_SIZE = 250;
 	
 	/**
 	 * This is the main map that gets iterated to send updates to all contexts
@@ -36,7 +37,7 @@ public class CoinGame {
 
 	private Map<Integer, WebSocketSession> idToContextMap = new HashMap<>();
 	private Map<WebSocketSession, AccountInfo> contextToAccountInfoMap = new HashMap<>();
-	private Map<PlayerInfo, Vec3> playerTargetLocations = new HashMap<>();
+	private Map<PlayerInfo, PlayerAction> playerTargetLocations = new HashMap<>();
 
 	private ConcurrentLinkedQueue<AccountInfo> newConnectionNotification = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<AccountInfo> endedConnectionNotification = new ConcurrentLinkedQueue<>();
@@ -160,14 +161,20 @@ public class CoinGame {
 	}
 	
 	private void shareAllTunnelsOf(WebSocketSession ctx, PlayerInfo info) {
-		List<TunnelSegment> tunnels = state.getTunnelsOfPlayer(info.id);
-		if (!tunnels.isEmpty()) {
-			JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
-			JSONArray arr = new JSONArray();
-			for(TunnelSegment tunnel : tunnels) {
-				arr.put(new JSONObject(tunnel));
-			}
-			obj.put("tunnels", arr);
+		Set<TunnelNode> tunnelNodes = new HashSet<>();
+		List<TunnelSegment> tunnels = state.getTunnelsOfPlayer(info.id, tunnelNodes);
+		JSONArray nodeArr = new JSONArray();
+		for(TunnelNode node : tunnelNodes) {
+			nodeArr.put(new JSONObject(node));
+		}
+		JSONArray segmentArr = new JSONArray();
+		for(TunnelSegment tunnel : tunnels) {
+			segmentArr.put(new JSONObject(tunnel));
+		}
+		JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
+		if (nodeArr.length() > 0 || segmentArr.length() > 0) {
+			obj.put("tunnelnodes", nodeArr);
+			obj.put("tunnelsegments", segmentArr);
 			sendToOne(obj.toString(), ctx);
 		}
 	}
@@ -196,7 +203,7 @@ public class CoinGame {
 	
 	private void receiveMove(PlayerInfo player, int x, int y) {
 		movePlayer(player);
-		playerTargetLocations.put(player, new Vec3(x, y, currentTime()));
+		playerTargetLocations.put(player, PlayerAction.move(new Vec3(x, y, currentTime())));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
@@ -206,34 +213,40 @@ public class CoinGame {
 		int nodeid2 = collapseObj.getInt("nodeid2");
 
 		if (!state.doesTunnelNodeExist(nodeid1) || !state.doesTunnelNodeExist(nodeid2)) {
-			System.err.println("ERROR COLLAPSING TUNNEL");
+			System.err.println("ERROR COLLAPSING TUNNEL: node1 or node2 doesnt exist");
 			return;
 		}
 		
-		// TODO validate player is close enough to node1
+		Vec3 playerPos = getInterpolatedPlayerPosition(player);
+		Vec2 nodePos = state.getTunnelNodePosition(nodeid1);
+		double distance = nodePos.distanceTo(playerPos.xy());
+		if (distance > TUNNEL_SIZE) {
+			System.err.println("ERROR COLLAPSING TUNNEL: player too far from node1");
+			return;
+		}
+		
 		
 		// validate there is segment from node1 to node2
-		TunnelSegment collapsed = state.collapseTunnelSegment(nodeid1, nodeid2, player.id);
-		if (collapsed == null) {
-			return;
-		}
+//		TunnelSegment collapsed = state.collapseTunnelSegment(nodeid1, nodeid2, player.id);
+//		if (collapsed == null) {
+//			return;
+//		}
 		
-		JSONObject obj = new JSONObject();
-		obj.put("type", MessageType.TUNNEL);
-		JSONArray arr = new JSONArray();
-		arr.put(new JSONObject(collapsed).put("delete", true));
-		obj.put("tunnels", arr);
-		sendToOne(obj.toString(), idToContextMap.get(player.id));
+//		JSONObject obj = new JSONObject();
+//		obj.put("type", MessageType.TUNNEL);
+//		JSONArray arr = new JSONArray();
+//		arr.put(new JSONObject(collapsed).put("delete", true));
+//		obj.put("tunnels", arr);
+//		sendToOne(obj.toString(), idToContextMap.get(player.id));
 		
 		Vec2 targetPos = state.getTunnelNodePosition(nodeid2);
 		movePlayer(player);
-		playerTargetLocations.put(player, new Vec3(targetPos.x, targetPos.y, currentTime()));
+		playerTargetLocations.put(player, PlayerAction.collapse(new Vec3(targetPos.x, targetPos.y, currentTime()), nodeid1));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
 	
 	private void receiveTunnel(PlayerInfo player, JSONObject message) {
-		
 		if (message.has("collapse")) {
 			receiveTunnelCollapse(player, message.getJSONObject("collapse"));
 			return;
@@ -299,15 +312,16 @@ public class CoinGame {
 		
 		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, nodeid2, player.id);
 		
-		JSONObject obj = new JSONObject();
-		obj.put("type", MessageType.TUNNEL);
-		JSONArray arr = new JSONArray();
-		arr.put(new JSONObject(segment));
-		obj.put("tunnels", arr);
+		JSONArray nodeArr = new JSONArray()
+				.put(new JSONObject(state.getTunnelNode(nodeid1)))
+				.put(new JSONObject(state.getTunnelNode(nodeid2)));
+		JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
+		obj.put("tunnelnodes", nodeArr);
+		obj.put("tunnelsegments", new JSONArray().put(new JSONObject(segment)));
 		sendToOne(obj.toString(), idToContextMap.get(player.id));
 		
 		movePlayer(player);
-		playerTargetLocations.put(player, new Vec3(segment.node2.x, segment.node2.y, currentTime()));
+		playerTargetLocations.put(player, PlayerAction.move(new Vec3(node2Pos.x, node2Pos.y, currentTime())));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
@@ -403,7 +417,6 @@ public class CoinGame {
 	private Vec2 tryToMovePlayerToward(PlayerInfo player, Vec2 target) {
 
 		Vec2 playerVec = new Vec2(player.x, player.y);
-		Vec2 movementVec = target.minus(playerVec);
 		boolean validMove = false;
 		for (Rectangle room : mapRooms) {
 			if (room.contains(new Point(target.x, target.y))) {
@@ -415,8 +428,8 @@ public class CoinGame {
 			boolean inTunnel = false;
 			for (TunnelSegment tunnel : state.getPlayerTunnels(player.id)) {
 				
-				Vec2 tunnelStart = new Vec2(tunnel.node1.x, tunnel.node1.y);
-				Vec2 tunnelEnd = new Vec2(tunnel.node2.x, tunnel.node2.y)/*; semicolon sus ඞ*/;
+				Vec2 tunnelStart = state.getTunnelNodePosition(tunnel.node1);//new Vec2(tunnel.node1.x, tunnel.node1.y);
+				Vec2 tunnelEnd = state.getTunnelNodePosition(tunnel.node2); //new Vec2(tunnel.node2.x, tunnel.node2.y)/*; semicolon sus ඞ*/;
 				Vec2 tunnelVec = tunnelEnd.minus(tunnelStart);
 				
 				double tunnelLength = tunnelEnd.minus(tunnelStart).magnitude();
@@ -437,7 +450,7 @@ public class CoinGame {
 						inTunnel = true;
 						break;
 					}
-					else if (distanceToTunnel <= 250) {
+					else if (distanceToTunnel <= TUNNEL_SIZE) {
 						double currentDistanceAlongTunnel = VectorMath.projectPointOntoLine(playerVec, tunnelStart, tunnelEnd);
 						Vec2 currentProjection = tunnelStart.add(tunnelEnd.minus(tunnelStart).multiply(currentDistanceAlongTunnel));
 						double currentDistanceToTunnel = currentProjection.distanceTo(playerVec);
@@ -486,14 +499,22 @@ public class CoinGame {
 		player.x = resultPosition.x;
 		player.y = resultPosition.y;
 
-		if (playerTargetLocations.containsKey(player)) {
-			Vec3 fullTarget = playerTargetLocations.get(player);
-			if(interpolatedPosition == fullTarget) {
-				playerTargetLocations.remove(player);
-				System.out.println(player.id + " reached destination");
-			}
-			else {
-				fullTarget.z = currentTime();
+		PlayerAction action = playerTargetLocations.get(player);;
+		Vec3 fullTarget = action.targetPosition;
+		if(interpolatedPosition == fullTarget) {
+			playerTargetLocations.remove(player);
+			System.out.println(player.id + " reached destination");
+			// TODO resolve collapse,dig actions
+		}
+		else {
+			fullTarget.z = currentTime();
+			if (action.type == PlayerActionType.COLLAPSE) {
+				TunnelNode node = state.updateTunnelNodePosition(action.nodeid, resultPosition);
+				JSONArray arr = new JSONArray().put(new JSONObject(node));
+				JSONObject obj = new JSONObject()
+						.put("type", MessageType.TUNNEL)
+						.put("tunnelnodes", arr);
+				sendToOne(obj.toString(), idToContextMap.get(player.id));
 			}
 		}
 		changedLocations.add(player.id);
@@ -504,7 +525,8 @@ public class CoinGame {
 		if (!playerTargetLocations.containsKey(player)) {
 			return new Vec3(player.x, player.y, 0);
 		}
-		Vec3 fullTarget = playerTargetLocations.get(player);
+		PlayerAction action = playerTargetLocations.get(player);;
+		Vec3 fullTarget = action.targetPosition;
 		Vec2 targetLocation = fullTarget.xy();
 		int elapsedTime = currentTime() - fullTarget.z;
 		
@@ -637,7 +659,7 @@ public class CoinGame {
 				obj.put("y", location.y);
 				
 				if (playerTargetLocations.containsKey(info)) {
-					obj.put("target", new JSONObject(playerTargetLocations.get(info)));
+					obj.put("target", new JSONObject(playerTargetLocations.get(info).targetPosition));
 				}
 				players.put(obj);
 			}

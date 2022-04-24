@@ -289,24 +289,31 @@ function receiveCoinMessage(data) {
 
 function receiveTunnels(data) {
     console.log(data);
-    data.tunnels.forEach(tunnel => {
-        if ('delete' in tunnel) {
-            delete tunnelSegments[tunnel.id];
-        }
-        else {
-            if (!(tunnel.node1.id in tunnelNodes)) {
-                tunnelNodes[tunnel.node1.id] = tunnel.node1;
+    if ('tunnelnodes' in data) {
+        data.tunnelnodes.forEach(node => {
+            if ('delete' in node) {
+                // TODO need to make sure this doesnt break any segments
+                // delete tunnelNodes[node.id];
             }
-            if (!(tunnel.node2.id in tunnelNodes)) {
-                tunnelNodes[tunnel.node2.id] = tunnel.node2;
+            else {
+                tunnelNodes[node.id] = node;
             }
-            tunnelSegments[tunnel.id] = {
-                'id': tunnel.id,
-                'nodeid1': tunnel.node1.id,
-                'nodeid2': tunnel.node2.id
-            };
-        }
-    });
+        });
+    }
+    if ('tunnelsegments' in data) {
+        data.tunnelsegments.forEach(tunnel => {
+            if ('delete' in tunnel) {
+                delete tunnelSegments[tunnel.id];
+            }
+            else {
+                tunnelSegments[tunnel.id] = {
+                    'id': tunnel.id,
+                    'nodeid1': tunnel.node1,
+                    'nodeid2': tunnel.node2
+                };
+            }
+        });
+    }
 }
 
 function myInfoUpdated() {

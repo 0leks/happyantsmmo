@@ -318,7 +318,8 @@ public class CoinDB {
 	}
 
 	private static final String insertTunnelNode = 
-			"INSERT INTO " + TUNNEL_NODES_TABLE + "(id, x, y, playerid) VALUES(?, ?, ?, ?) ON CONFLICT DO NOTHING";
+			"INSERT INTO " + TUNNEL_NODES_TABLE + "(id, x, y, playerid) VALUES(?, ?, ?, ?)" +
+			"ON CONFLICT (id) DO UPDATE SET x=EXCLUDED.x, y=EXCLUDED.y";
 	private PreparedStatement insertTunnelNodeStatement;
 	public void insertTunnelNode(TunnelNode node) {
 		try {
@@ -338,8 +339,8 @@ public class CoinDB {
 	public void insertTunnelSegment(TunnelSegment segment) {
 		try {
 			insertTunnelSegmentStatement.setInt(1, segment.id);
-			insertTunnelSegmentStatement.setInt(2, segment.node1.id);
-			insertTunnelSegmentStatement.setInt(3, segment.node2.id);
+			insertTunnelSegmentStatement.setInt(2, segment.node1);
+			insertTunnelSegmentStatement.setInt(3, segment.node2);
 			insertTunnelSegmentStatement.setInt(4, segment.playerid);
 			insertTunnelSegmentStatement.execute();
 		} catch (SQLException e) {
@@ -388,8 +389,8 @@ public class CoinDB {
 					int nodeid1 = rs.getInt("nodeid1");
 					int nodeid2 = rs.getInt("nodeid2");
 					TunnelSegment segment = new TunnelSegment(id, 
-															nodes.get(nodeid1), 
-															nodes.get(nodeid2),
+															nodeid1, 
+															nodeid2,
 															playerid);
 					segmentList.add(segment);
 				}
