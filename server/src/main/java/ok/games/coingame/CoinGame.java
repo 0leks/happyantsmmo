@@ -209,6 +209,15 @@ public class CoinGame {
 		else {
 			int x = message.getInt("x1");
 			int y = message.getInt("y1");
+			boolean validTunnelStart = false;
+			for (Rectangle room : mapRooms) {
+				if (room.contains(new Point(x, y))) {
+					validTunnelStart = true;
+				}
+			}
+			if (!validTunnelStart) {
+				return;
+			}
 			TunnelNode node = state.createNewTunnelNode(x, y, player.id);
 			nodeid1 = node.id;
 		}

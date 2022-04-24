@@ -18,7 +18,8 @@ let currentScale = [1.0, 1.0];
 
 // Vertex information
 
-let squareMesh = {};
+let centeredSquareMesh = {};
+let cornerSquareMesh = {};
 let circleMesh = {};
 
 let PLAYER_SIZE = 600;
@@ -42,6 +43,36 @@ class TunnelingStatus {
 }
 
 let myTunnelingStatus = new TunnelingStatus();
+
+class Room {
+    x;
+    y;
+    width;
+    height;
+    color1;
+    color2;
+    constructor(x, y, width, height, color1, color2) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.color1 = color1;
+        this.color2 = color2;
+    }
+}
+
+let cameraTranslate = [0, 0];
+
+let colorA = [0.8, 0.9, 1.0, 1.0];
+let colorB = [0.7, 0.8, 0.9, 1.0];
+let colorC = [0.7, 0.9, 0.7, 1.0];
+let colorD = [0.7, 0.6, 0.5, 1.0];
+let rooms = [
+    new Room(-10000, -10000, 20000, 20000, colorA, colorB),
+    new Room( 25000, -20000, 10000, 10000, colorC, colorD),
+    new Room( 25000, -5000, 10000, 10000, colorC, colorD),
+    new Room( 25000, 10000, 10000, 10000, colorC, colorD),
+];
 
 // let startTunnelNodeId = getTunnelNodeIdAtPoint(playerPositions[myID]);
 // let endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
@@ -179,6 +210,15 @@ function getTunnelNodeIdAtPoint(point) {
         }
     }
     return null;
+}
+function isInRoom(point) {
+    for (const room of rooms) {
+        if (room.x <= point.x && point.x <= room.x + room.width
+            && room.y <= point.y && point.y <= room.y + room.height) {
+                return true;
+        }
+    }
+    return false;
 }
 function mousePressed(e) {
     mouseMoved(e);
@@ -504,6 +544,21 @@ function getPlayerPosition(playerid) {
     return [0, 0];
 }
 
+function makemesh(mesh, vertices, indices) {
+    mesh.vertexArray = Float32Array.from(vertices);
+    mesh.vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, mesh.vertexArray, gl.STATIC_DRAW);
+    mesh.vertexNumComponents = 2;
+    mesh.vertexCount = mesh.vertexArray.length / mesh.vertexNumComponents;
+
+    mesh.indexArray = Uint16Array.from(indices);
+    mesh.indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indexArray, gl.STATIC_DRAW);
+    mesh.indexCount = mesh.indexArray.length;
+}
+
 function makeSquareMesh() {
     let size = 1;
     let vertices = [
@@ -515,19 +570,14 @@ function makeSquareMesh() {
         0, 1, 2,
         0, 2, 3
     ];
+    makemesh(centeredSquareMesh, vertices, indices);
 
-    squareMesh.vertexArray = Float32Array.from(vertices);
-    squareMesh.vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, squareMesh.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, squareMesh.vertexArray, gl.STATIC_DRAW);
-    squareMesh.vertexNumComponents = 2;
-    squareMesh.vertexCount = squareMesh.vertexArray.length / squareMesh.vertexNumComponents;
-
-    squareMesh.indexArray = Uint16Array.from(indices);
-    squareMesh.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareMesh.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, squareMesh.indexArray, gl.STATIC_DRAW);
-    squareMesh.indexCount = squareMesh.indexArray.length;
+    let verticesCorner = [
+        0, size,
+        size, size,
+        size, 0,
+        0, 0];
+    makemesh(cornerSquareMesh, verticesCorner, indices);
 }
 
 function makeCircleMesh() {
@@ -547,18 +597,7 @@ function makeCircleMesh() {
     }
     indices.push(...[0, 1, numSegments]);
 
-    circleMesh.vertexArray = Float32Array.from(vertices);
-    circleMesh.vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, circleMesh.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, circleMesh.vertexArray, gl.STATIC_DRAW);
-    circleMesh.vertexNumComponents = 2;
-    circleMesh.vertexCount = circleMesh.vertexArray.length / circleMesh.vertexNumComponents;
-
-    circleMesh.indexArray = Uint16Array.from(indices);
-    circleMesh.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleMesh.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, circleMesh.indexArray, gl.STATIC_DRAW);
-    circleMesh.indexCount = circleMesh.indexArray.length;
+    makemesh(circleMesh, vertices, indices);
 }
 
 function startup() {
@@ -586,7 +625,7 @@ function startup() {
     let scale = 1;
     currentScale = [2 * scale / glCanvas.width / WORLD_SCALE, 2 * scale / glCanvas.height / WORLD_SCALE];
 
-    makeSquareMesh(0, 0);
+    makeSquareMesh();
     makeCircleMesh();
 
     currentAngle = 0.0;
@@ -656,43 +695,52 @@ function drawMeshes(mesh, positions, scale) {
     }
 }
 
-function drawRoom(gl, uGlobalColor, color1, color2, position, scale) {
-    gl.uniform4fv(uGlobalColor, color1);
-    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale);
+function drawRoom(gl, uGlobalColor, room) {
+
+    let center = [room.x + room.width/2, room.y + room.height/2];
+
+    gl.uniform4fv(uGlobalColor, room.color1);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width);
     
-    gl.uniform4fv(uGlobalColor, color2);
-    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale * 16/20);
+    gl.uniform4fv(uGlobalColor, room.color2);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width * 16/20);
 
-    gl.uniform4fv(uGlobalColor, color1);
-    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale * 8/20);
+    gl.uniform4fv(uGlobalColor, room.color1);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width * 8/20);
 
-    gl.uniform4fv(uGlobalColor, color2);
-    drawMeshes(squareMesh, {0: position}, WORLD_SCALE * scale / 20);
+    gl.uniform4fv(uGlobalColor, room.color2);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width / 20);
 }
 
-function drawTunnelNode(node) {
-    textContext.fillStyle = 'rgba(100, 100, 100, 0.5)';
-    textContext.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+let tunnelBackgroundColor = 'rgba(100, 100, 100, 0.5)';
+let tunnelLineColor = 'rgba(255, 255, 255, 1)';
+let tunnelInvalidLineColor = 'rgba(255, 0, 0, 1)';
+let tunnelNodeOutlineColor = 'rgba(255, 255, 255, 0.6)';
+
+function drawTunnelNode(node, invalidSegment) {
+    textContext.fillStyle = tunnelBackgroundColor;
     textContext.lineWidth = WORLD_SCALE;
     textContext.beginPath();
     textContext.arc(node.x, -node.y, tunnelSize/2, 0, 2 * Math.PI);
     textContext.fill();
+
+    textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelNodeOutlineColor;
     textContext.stroke();
-    textContext.fillStyle = 'rgba(255, 255, 255, 1)';
+    textContext.fillStyle = invalidSegment ? tunnelInvalidLineColor : tunnelLineColor;
     textContext.beginPath();
     textContext.arc(node.x, -node.y, tunnelSize/10, 0, 2 * Math.PI);
     textContext.fill();
 }
 
-function drawTunnelSegment(node1, node2) {
-    textContext.strokeStyle = 'rgba(100, 100, 100, 0.5)';
+function drawTunnelSegment(node1, node2, invalidSegment) {
+    textContext.strokeStyle = tunnelBackgroundColor;
     textContext.lineWidth = tunnelSize;
     // textContext.lineCap = 'square';
     textContext.beginPath();
     textContext.moveTo(node1.x, -node1.y);
     textContext.lineTo(node2.x, -node2.y);
     textContext.stroke();
-    textContext.strokeStyle = 'rgba(255, 255, 255, 1)';
+    textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelLineColor;
     textContext.lineWidth = WORLD_SCALE;
     textContext.stroke();
 }
@@ -711,9 +759,6 @@ function drawTargetX(position) {
     textContext.stroke(); 
 }
 
-
-
-let cameraTranslate = [0, 0];
 function animateScene() {
 
     gl.viewport(0, 0, glCanvas.width, glCanvas.height);
@@ -734,10 +779,9 @@ function animateScene() {
 
 
     // DRAW BACKGROUND SQUARES
-    drawRoom(gl, uGlobalColor, [0.8, 0.9, 1.0, 1.0], [0.7, 0.8, 0.9, 1.0], [0, 0], 2000);
-    drawRoom(gl, uGlobalColor, [0.7, 0.9, 0.7, 1.0], [0.7, 0.6, 0.5, 1.0], [30000, -15000], 1000);
-    drawRoom(gl, uGlobalColor, [0.7, 0.9, 0.7, 1.0], [0.7, 0.6, 0.5, 1.0], [30000, 0], 1000);
-    drawRoom(gl, uGlobalColor, [0.7, 0.9, 0.7, 1.0], [0.7, 0.6, 0.5, 1.0], [30000, 15000], 1000);
+    for( const room of rooms) {
+        drawRoom(gl, uGlobalColor, room);
+    }
 
     let radians = currentAngle * Math.PI / 180.0;
     currentRotation[0] = Math.sin(radians);
@@ -750,7 +794,7 @@ function animateScene() {
     for (playerid in playerPositions) {
         pos.push(getPlayerPosition(playerid));
     }
-    drawMeshes(squareMesh, pos, PLAYER_SIZE);
+    drawMeshes(centeredSquareMesh, pos, PLAYER_SIZE);
 
     // DRAW COINS
     gl.uniform4fv(uGlobalColor, [.9, 0.6, 0.2, 1.0]);
@@ -803,6 +847,8 @@ function animateScene() {
             myTunnelingStatus.tunnelStartPosition = {x: playerPositions[myID][0], y: playerPositions[myID][1]};
         }
 
+            
+
         myTunnelingStatus.endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
         if (myTunnelingStatus.endTunnelNodeId) {
             myTunnelingStatus.tunnelEndPosition = tunnelNodes[myTunnelingStatus.endTunnelNodeId];
@@ -831,9 +877,15 @@ function animateScene() {
             endVec = startVec.add(croppedVec);
         }
 
-        drawTunnelSegment(startVec, endVec);
+        let invalidSegment = false;
+        if (!myTunnelingStatus.startTunnelNodeId 
+                && !isInRoom(myTunnelingStatus.tunnelStartPosition)) {
+            invalidSegment = true;
+        }
+
+        drawTunnelSegment(startVec, endVec, invalidSegment);
         if (!myTunnelingStatus.startTunnelNodeId) {
-            drawTunnelNode(startVec);
+            drawTunnelNode(startVec, invalidSegment);
         }
         if (!myTunnelingStatus.endTunnelNodeId) {
             drawTunnelNode(endVec);
@@ -847,19 +899,9 @@ function animateScene() {
     textContext.restore();
 
 
-
-
-
-
     window.requestAnimationFrame(function (currentTime) {
-        //   let deltaAngle = ((currentTime - previousTime) / 1000.0) * degreesPerSecond;
-        // currentAngle = (currentAngle + deltaAngle) % 360;
-
-        
         let deltaTime = currentTime - previousTime;
         previousTime = currentTime;
-
-
 
         let mypos = getPlayerPosition(myID);
         let posVec = new Vector(mypos[0], mypos[1], 0);
