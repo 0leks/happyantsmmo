@@ -201,14 +201,29 @@ public class CoinGame {
 		sendLocations(false);
 	}
 	
-	private void receiveTunnelCollapse(PlayerInfo player, JSONObject obj) {
-		int nodeid1 = obj.getInt("nodeid1");
-		int nodeid2 = obj.getInt("nodeid2");
+	private void receiveTunnelCollapse(PlayerInfo player, JSONObject collapseObj) {
+		int nodeid1 = collapseObj.getInt("nodeid1");
+		int nodeid2 = collapseObj.getInt("nodeid2");
 
 		if (!state.doesTunnelNodeExist(nodeid1) || !state.doesTunnelNodeExist(nodeid2)) {
 			System.err.println("ERROR COLLAPSING TUNNEL");
 			return;
 		}
+		
+		// TODO validate player is close enough to node1
+		
+		// validate there is segment from node1 to node2
+		TunnelSegment collapsed = state.collapseTunnelSegment(nodeid1, nodeid2, player.id);
+		if (collapsed == null) {
+			return;
+		}
+		
+		JSONObject obj = new JSONObject();
+		obj.put("type", MessageType.TUNNEL);
+		JSONArray arr = new JSONArray();
+		arr.put(new JSONObject(collapsed).put("delete", true));
+		obj.put("tunnels", arr);
+		sendToOne(obj.toString(), idToContextMap.get(player.id));
 		
 		Vec2 targetPos = state.getTunnelNodePosition(nodeid2);
 		movePlayer(player);
@@ -245,6 +260,7 @@ public class CoinGame {
 		if (!state.doesTunnelNodeExist(nodeid1)) {
 			System.err.println("ERROR MAKING TUNNEL");
 		}
+		// TODO validate player is close enough to node1
 		
 		Vec2 node2Pos = null;
 		if (message.has("nodeid2") && state.doesTunnelNodeExist(message.getInt("nodeid2"))) {
@@ -397,7 +413,7 @@ public class CoinGame {
 		if (!validMove) {
 			// If outside of valid room, see if currently in a tunnel
 			boolean inTunnel = false;
-			for (TunnelSegment tunnel : state.playerToTunnels.get(player.id)) {
+			for (TunnelSegment tunnel : state.getPlayerTunnels(player.id)) {
 				
 				Vec2 tunnelStart = new Vec2(tunnel.node1.x, tunnel.node1.y);
 				Vec2 tunnelEnd = new Vec2(tunnel.node2.x, tunnel.node2.y)/*; semicolon sus ඞ*/;

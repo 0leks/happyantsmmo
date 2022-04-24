@@ -31,7 +31,7 @@ let coinPositions = {};
 let coinValues = {};
 
 let tunnelNodes = {};
-let tunnelSegments = [];
+let tunnelSegments = {};
 
 let myPosition;
 class TunnelingStatus {
@@ -290,17 +290,22 @@ function receiveCoinMessage(data) {
 function receiveTunnels(data) {
     console.log(data);
     data.tunnels.forEach(tunnel => {
-        if (!(tunnel.node1.id in tunnelNodes)) {
-            tunnelNodes[tunnel.node1.id] = tunnel.node1;
+        if ('delete' in tunnel) {
+            delete tunnelSegments[tunnel.id];
         }
-        if (!(tunnel.node2.id in tunnelNodes)) {
-            tunnelNodes[tunnel.node2.id] = tunnel.node2;
+        else {
+            if (!(tunnel.node1.id in tunnelNodes)) {
+                tunnelNodes[tunnel.node1.id] = tunnel.node1;
+            }
+            if (!(tunnel.node2.id in tunnelNodes)) {
+                tunnelNodes[tunnel.node2.id] = tunnel.node2;
+            }
+            tunnelSegments[tunnel.id] = {
+                'id': tunnel.id,
+                'nodeid1': tunnel.node1.id,
+                'nodeid2': tunnel.node2.id
+            };
         }
-        tunnelSegments.push({
-            'id': tunnel.id,
-            'nodeid1': tunnel.node1.id,
-            'nodeid2': tunnel.node2.id
-        });
     });
 }
 
@@ -523,7 +528,7 @@ function updatePlaceTunnelButton() {
     }
 
     if (playerInfos[myID].tunnelingExp > 0
-            && tunnelSegments.length > 0) {
+            && Object.keys(tunnelSegments).length > 0) {
         unhideElement(collapseTunnelButton);
         collapseTunnelButton.disabled = false;
     }
@@ -864,9 +869,9 @@ function animateScene() {
     }
     textContext.fillText(loadingMessage, 0, 0);
     
-    tunnelSegments.forEach(tunnel => {
-        drawTunnelSegment(tunnelNodes[tunnel.nodeid1], tunnelNodes[tunnel.nodeid2]);
-    });
+    for (const [id, segment] of Object.entries(tunnelSegments)) {
+        drawTunnelSegment(tunnelNodes[segment.nodeid1], tunnelNodes[segment.nodeid2]);
+    };
 
     for (const [id, node] of Object.entries(tunnelNodes)) {
         drawTunnelNode(node);

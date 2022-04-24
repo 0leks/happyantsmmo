@@ -110,6 +110,7 @@ public class CoinDB {
 			selectTunnelSegmentsStatement = connection.prepareStatement(selectTunnelSegments);
 			insertTunnelNodeStatement = connection.prepareStatement(insertTunnelNode);
 			insertTunnelSegmentStatement = connection.prepareStatement(insertTunnelSegment);
+			deleteTunnelSegmentStatement = connection.prepareStatement(deleteTunnelSegment);
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -345,6 +346,19 @@ public class CoinDB {
 			e.printStackTrace();
 		}
 	}
+
+	private static final String deleteTunnelSegment = 
+			"DELETE FROM " + TUNNEL_SEGMENTS_TABLE + " WHERE id=?;";
+	private PreparedStatement deleteTunnelSegmentStatement;
+	public void deleteTunnelSegment(TunnelSegment segment) {
+		try {
+			deleteTunnelSegmentStatement.setInt(1, segment.id);
+			deleteTunnelSegmentStatement.execute();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
+	
 
 	private static final String selectTunnelNodes = 
 			"SELECT * FROM " + TUNNEL_NODES_TABLE + " WHERE playerid=?";
