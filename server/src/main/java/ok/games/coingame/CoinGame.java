@@ -341,7 +341,7 @@ public class CoinGame {
 //				System.out.println("projectedTarget: " + projectedTarget);
 //				System.out.println("tunnel: " + tunnelStart + " -> " + tunnelEnd);
 				
-				if (distanceAlongTunnel >= 0 && distanceAlongTunnel <= tunnelLength) {
+				if (distanceAlongTunnel >= -60 && distanceAlongTunnel <= tunnelLength + 60) {
 					// within tunnel length
 					if (distanceToTunnel <= 220) {
 						// close enough to tunnel
@@ -359,7 +359,7 @@ public class CoinGame {
 						}
 					}
 				}
-				else if (distanceAlongTunnel >= -30 && distanceAlongTunnel <= tunnelLength + 30) {
+				else if (distanceAlongTunnel >= -100 && distanceAlongTunnel <= tunnelLength + 100) {
 					// outside of tunnel length
 					double currentDistanceAlongTunnel = VectorMath.projectPointOntoLine(playerVec, tunnelStart, tunnelEnd);
 					if (distanceAlongTunnel < currentDistanceAlongTunnel) {
@@ -388,6 +388,7 @@ public class CoinGame {
 		if (resultPosition == null) {
 			playerTargetLocations.remove(player);
 			changedLocations.add(player.id);
+			sendLocations(false);
 			return;
 		}
 		
