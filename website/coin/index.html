@@ -50,27 +50,21 @@
             <span onclick="closeParent(this)" class="close">&times;</span>
             <h1>Tunneling</h1>
             <div class="modal-content">
+                <h2>Segment length = 300 + 5 &times; <i>Tunneling Level</i></h2>
                 <ul>
                     <li>03: segments per tunnel 2</li>
-                    <li>06: segment length 300</li>
                     <li>12: segments per tunnel 3</li>
-                    <li>14: segment length 350</li>
                     <li>17: number of tunnels 2</li>
                     <li>20: split segments</li>
                     <li>21: segments per tunnel 4</li>
-                    <li>23: segment length 400</li>
                     <li>30: segments per tunnel 5</li>
-                    <li>33: segment length 450</li>
                     <li>34: number of tunnels 3</li>
                     <li>39: segments per tunnel 6</li>
-                    <li>44: segment length 500</li>
                     <li>48: segments per tunnel 7</li>
                     <li>51: number of tunnels 4</li>
-                    <li>58: segment length 550</li>
                     <li>57: segments per tunnel 8</li>
                     <li>66: segments per tunnel 9</li>
                     <li>68: number of tunnels 5</li>
-                    <li>71: segment length 600</li>
                 </ul>
             </div>
         </div>
@@ -81,7 +75,7 @@
             <button onclick="homeTeleport()" id="homeTeleportButton">Home Teleport</button>
             <button onclick="unlockTunneling()" id="unlockTunnelingButton" class="hidden" disabled>Unlock Tunneling</button>
             <button onclick="openSkillInfo()" id="skillInfoButton" class="hidden" disabled>
-                Tunneling <span id="tunnelingLevel">0</span>
+                Tunneling: <span id="tunnelingLevel">0</span>
                 <meter id="tunnelingLevelProgress" min="0" max="100" value="0"></meter>
             </button>
             <button onclick="placeTunnel()" id="tunnelButton" class="hidden" disabled>Enter Tunneling Mode</button>
