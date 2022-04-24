@@ -34,6 +34,7 @@ let tunnelSegments = [];
 
 let myPosition;
 class TunnelingStatus {
+    tunnelingLevel;
     startTunnelNodeId;
     tunnelStartPosition;
     endTunnelNodeId;
@@ -168,14 +169,6 @@ function screenToGamePos(screenPos) {
 }
 function mouseMoved(e) {
     mousePos = screenToGamePos(e);
-
-    myTunnelingStatus.endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
-    if (myTunnelingStatus.endTunnelNodeId) {
-        myTunnelingStatus.tunnelEndPosition = tunnelNodes[myTunnelingStatus.endTunnelNodeId];
-    }
-    else {
-        myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
-    }
 }
 function getTunnelNodeIdAtPoint(point) {
     for (const [id, node] of Object.entries(tunnelNodes)) {
@@ -398,6 +391,9 @@ function getPercentToNextLevel(exp) {
     let nextLevelExp = experienceTable[currentLevel + 1];
     return {base: currentLevelExp, next: nextLevelExp};
 }
+function getMaxSegmentLength(tunnelingLevel) {
+    return 3000 + 50*tunnelingLevel;
+}
 
 function testLevelFromExperience() {
     let previousLevel = -1;
@@ -423,9 +419,9 @@ let tunnelingSkillButton = id("skillInfoButton");
 function updatePlaceTunnelButton() {
     if ('tunnelingExp' in playerInfos[myID]) {
         let currentExp = getPlayerInfo(myID, 'tunnelingExp');
-        let currentLevel = getLevelFromExperience(currentExp);
+        myTunnelingStatus.tunnelingLevel = getLevelFromExperience(currentExp);
         let experienceRange = getPercentToNextLevel(currentExp);
-        id("tunnelingLevel").innerHTML = currentLevel;
+        id("tunnelingLevel").innerHTML = myTunnelingStatus.tunnelingLevel;
         id("tunnelingLevelProgress").min = experienceRange.base;
         id("tunnelingLevelProgress").max = experienceRange.next;
         id("tunnelingLevelProgress").value = currentExp;
@@ -798,6 +794,7 @@ function animateScene() {
 
     if (placingTunnel) {
         myPosition = getPlayerPosition(myID);
+
         myTunnelingStatus.startTunnelNodeId = getTunnelNodeIdAtPoint(myPosition);
         if (myTunnelingStatus.startTunnelNodeId) {
             myTunnelingStatus.tunnelStartPosition = tunnelNodes[myTunnelingStatus.startTunnelNodeId];
@@ -806,12 +803,40 @@ function animateScene() {
             myTunnelingStatus.tunnelStartPosition = {x: playerPositions[myID][0], y: playerPositions[myID][1]};
         }
 
-        drawTunnelSegment(myTunnelingStatus.tunnelStartPosition, myTunnelingStatus.tunnelEndPosition);
+        myTunnelingStatus.endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
+        if (myTunnelingStatus.endTunnelNodeId) {
+            myTunnelingStatus.tunnelEndPosition = tunnelNodes[myTunnelingStatus.endTunnelNodeId];
+        }
+        else {
+            myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
+        }
+        
+        let startVec = new Vector(myTunnelingStatus.tunnelStartPosition.x, 
+                                myTunnelingStatus.tunnelStartPosition.y, 
+                                0);
+        let endVec = new Vector(myTunnelingStatus.tunnelEndPosition.x, 
+                                myTunnelingStatus.tunnelEndPosition.y, 
+                                0);
+        let deltaVec = endVec.subtract(startVec);
+        let maxSegmentLength = getMaxSegmentLength(myTunnelingStatus.tunnelingLevel);
+        if (myTunnelingStatus.endTunnelNodeId && deltaVec.length() > maxSegmentLength) {
+            myTunnelingStatus.endTunnelNodeId = null;
+            myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
+            endVec.x = myTunnelingStatus.tunnelEndPosition.x;
+            endVec.y = myTunnelingStatus.tunnelEndPosition.y;
+            deltaVec = endVec.subtract(startVec);
+        }
+        if (deltaVec.length() > maxSegmentLength) {
+            let croppedVec = deltaVec.multiply(maxSegmentLength / deltaVec.length());
+            endVec = startVec.add(croppedVec);
+        }
+
+        drawTunnelSegment(startVec, endVec);
         if (!myTunnelingStatus.startTunnelNodeId) {
-            drawTunnelNode(myTunnelingStatus.tunnelStartPosition);
+            drawTunnelNode(startVec);
         }
         if (!myTunnelingStatus.endTunnelNodeId) {
-            drawTunnelNode(myTunnelingStatus.tunnelEndPosition);
+            drawTunnelNode(endVec);
         }
     }
 
