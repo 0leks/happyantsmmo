@@ -32,6 +32,29 @@ let coinValues = {};
 let tunnelNodes = {};
 let tunnelSegments = [];
 
+let myPosition;
+class TunnelingStatus {
+    startTunnelNodeId;
+    tunnelStartPosition;
+    endTunnelNodeId;
+    tunnelEndPosition;
+}
+
+let myTunnelingStatus = new TunnelingStatus();
+
+// let startTunnelNodeId = getTunnelNodeIdAtPoint(playerPositions[myID]);
+// let endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
+// let tunnelStart = {x: playerPositions[myID][0], y: playerPositions[myID][1]};
+// let tunnelEnd = {x: mousePos[0], y: mousePos[1]};
+// if (startTunnelNodeId) {
+//     tunnelStart = tunnelNodes[startTunnelNodeId];
+// }
+// if (endTunnelNodeId) {
+//     tunnelEnd = tunnelNodes[endTunnelNodeId];
+// }
+
+
+
 // Rendering data shared with the
 // scalers.
 
@@ -101,21 +124,21 @@ function sendMove(x, y) {
     }
     ws.send(JSON.stringify(data));
 }
-function sendNewTunnel(nodeid1, nodeposition1, nodeid2, nodeposition2) {
+function sendNewTunnel(myTunnelingStatus) {
     let data = {'type': 'TUNNEL'};
-    if (nodeid1) {
-        data.nodeid1 = nodeid1;
+    if (myTunnelingStatus.startTunnelNodeId) {
+        data.nodeid1 = myTunnelingStatus.startTunnelNodeId;
     }
     else {
-        data.x1 = nodeposition1[0];
-        data.y1 = nodeposition1[1];
+        data.x1 = myTunnelingStatus.tunnelStartPosition.x;
+        data.y1 = myTunnelingStatus.tunnelStartPosition.y;
     }
-    if (nodeid2) {
-        data.nodeid2 = nodeid2;
+    if (myTunnelingStatus.endTunnelNodeId) {
+        data.nodeid2 = myTunnelingStatus.endTunnelNodeId;
     }
     else {
-        data.x2 = nodeposition2[0];
-        data.y2 = nodeposition2[1];
+        data.x2 = myTunnelingStatus.tunnelEndPosition.x;
+        data.y2 = myTunnelingStatus.tunnelEndPosition.y;
     }
     ws.send(JSON.stringify(data));
 }
@@ -125,12 +148,20 @@ id("textCanvas").addEventListener('mouseup', mouseReleased, false);
 id("textCanvas").addEventListener('mousemove', mouseMoved, false);
 let mousePos = [0, 0];
 function screenToGamePos(screenPos) {
-    let mypos = getMyPosition(myID);
+    let mypos = getPlayerPosition(myID);
     let targetPos = [mypos[0] + (screenPos.x - glCanvas.width / 2) * WORLD_SCALE, mypos[1] - (screenPos.y - glCanvas.height / 2) * WORLD_SCALE];
     return targetPos;
 }
 function mouseMoved(e) {
     mousePos = screenToGamePos(e);
+
+    myTunnelingStatus.endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
+    if (myTunnelingStatus.endTunnelNodeId) {
+        myTunnelingStatus.tunnelEndPosition = tunnelNodes[myTunnelingStatus.endTunnelNodeId];
+    }
+    else {
+        myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
+    }
 }
 function getTunnelNodeIdAtPoint(point) {
     for (const [id, node] of Object.entries(tunnelNodes)) {
@@ -151,39 +182,13 @@ function mousePressed(e) {
         updatePlaceTunnelButton();
         return;
     }
-
-    // console.log(e);
-    let mypos = getMyPosition(myID);
-    let targetPos = screenToGamePos(e);
-
-
     if ( !placingTunnel) {
-        // console.log('mypos:' + mypos);
-        // playerTargetPositions[myID] = {
-        //     'from': new Vector(mypos[0], mypos[1], 0),
-        //     'to': new Vector(targetPos[0], targetPos[1], 0),
-        //     'previousTime': previousTime
-        // };
-        sendMove(targetPos[0], targetPos[1]);
-    }
-    else {
-        let tunnelNodeId = getTunnelNodeIdAtPoint(targetPos);
-        if (tunnelNodeId) {
-            placingNewTunnelFromNode = tunnelNodeId;
-        }
-        else {
-            placingNewTunnelFromLocation = targetPos;
-        }
+        sendMove(mousePos[0], mousePos[1]);
     }
 }
 function mouseReleased(e) {
     if (placingTunnel) {
-        if (placingNewTunnelFromNode || placingNewTunnelFromLocation) {
-            let tunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
-            sendNewTunnel(placingNewTunnelFromNode, placingNewTunnelFromLocation, tunnelNodeId, mousePos);
-            placingNewTunnelFromNode = null;
-            placingNewTunnelFromLocation = null;
-        }
+        sendNewTunnel(myTunnelingStatus);
     }
 }
 
@@ -192,7 +197,7 @@ function receiveHelloMessage(data) {
     myID = data.id;
 
     if (myID == ADMIN_ID) {
-        id("stopGameButton").classList.remove('hidden');
+        unhideElement(id("stopGameButton"));
     }
 }
 
@@ -230,6 +235,11 @@ function receiveTunnels(data) {
             'nodeid2': tunnel.node2.id
         });
     });
+}
+
+function myInfoUpdated() {
+    
+    updatePlaceTunnelButton();
 }
 
 var myID;
@@ -283,22 +293,19 @@ function receiveMessage(msg) {
                 updatePlayerInfo(player.id, 'numcoins', player.numcoins);
                 updatePlayerInfo(player.id, 'tunnelingLevel', player.tunnelingLevel);
 
-
                 if ('target' in player) {
-                    // if (player.id == myID && playerTargetPositions[myID]) {
-                    //     playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
-                    //     playerTargetPositions[myID].previousTime = previousTime;
-                    // }
-                    // else {
-                        playerTargetPositions[player.id] = {
-                            'from': new Vector(player.x, player.y, 0),
-                            'to': new Vector(player.target.x, player.target.y, 0),
-                            'previousTime': previousTime
-                        };
-                    // }
+                    playerTargetPositions[player.id] = {
+                        'from': new Vector(player.x, player.y, 0),
+                        'to': new Vector(player.target.x, player.target.y, 0),
+                        'previousTime': previousTime
+                    };
                 }
                 else {
                     delete playerTargetPositions[player.id];
+                }
+
+                if (player.id == myID) {
+                    myInfoUpdated();
                 }
             });
 
@@ -325,8 +332,6 @@ function playersDisconnected(ids) {
 let UNLOCK_TUNNELING_COST = 1000;
 let TUNNEL_COST = 1100;
 let placingTunnel = false;
-let placingNewTunnelFromNode = null;
-let placingNewTunnelFromLocation = null;
 function placeTunnel() {
     if (playerInfos[myID].numcoins >= TUNNEL_COST) {
         console.log("Placing tunnel");
@@ -410,7 +415,7 @@ function updatePlaceTunnelButton() {
         id("tunnelingLevelProgress").min = experienceRange.base;
         id("tunnelingLevelProgress").max = experienceRange.next;
         id("tunnelingLevelProgress").value = currentExp;
-        id("tunnelingLevelProgress").title = currentExp + '/' + experienceRange.next;
+        tunnelingSkillButton.title = currentExp + '/' + experienceRange.next;
     }
 
     if (placingTunnel) {
@@ -448,11 +453,6 @@ function updatePlayerInfo(pid, key, value) {
     }
     playerInfos[pid][key] = value;
 
-    if (pid == myID) {
-        if(key == 'numcoins' || key == 'tunnelingLevel') {
-            updatePlaceTunnelButton();
-        }
-    }
 }
 
 function getPlayerInfo(id, key) {
@@ -469,7 +469,7 @@ function getPlayerInfo(id, key) {
     }
 }
 
-function getMyPosition(playerid) {
+function getPlayerPosition(playerid) {
     if (playerid in playerPositions) {
         let delta2 = new Vector(0, 0);
         if (playerid in playerTargetPositions) {
@@ -738,7 +738,7 @@ function animateScene() {
     gl.uniform4fv(uGlobalColor, [0.1, 0.7, 0.2, 1.0]);
     let pos = [];
     for (playerid in playerPositions) {
-        pos.push(getMyPosition(playerid));
+        pos.push(getPlayerPosition(playerid));
     }
     drawMeshes(squareMesh, pos, PLAYER_SIZE);
 
@@ -782,17 +782,23 @@ function animateScene() {
         drawTunnelNode(node);
     }
 
-    if (placingTunnel && placingNewTunnelFromNode) {
-        drawTunnelSegment(tunnelNodes[placingNewTunnelFromNode], {x: mousePos[0], y: mousePos[1]});
-    }
-    if (placingTunnel && placingNewTunnelFromLocation) {
-        drawTunnelSegment({x: placingNewTunnelFromLocation[0], y: placingNewTunnelFromLocation[1]}, 
-                        {x: mousePos[0], y: mousePos[1]});
-        drawTunnelNode({x: placingNewTunnelFromLocation[0], y: placingNewTunnelFromLocation[1]})
-    }
-    
     if (placingTunnel) {
-        drawTunnelNode({x: mousePos[0], y: mousePos[1]})
+        myPosition = getPlayerPosition(myID);
+        myTunnelingStatus.startTunnelNodeId = getTunnelNodeIdAtPoint(myPosition);
+        if (myTunnelingStatus.startTunnelNodeId) {
+            myTunnelingStatus.tunnelStartPosition = tunnelNodes[myTunnelingStatus.startTunnelNodeId];
+        }
+        else {
+            myTunnelingStatus.tunnelStartPosition = {x: playerPositions[myID][0], y: playerPositions[myID][1]};
+        }
+
+        drawTunnelSegment(myTunnelingStatus.tunnelStartPosition, myTunnelingStatus.tunnelEndPosition);
+        if (!myTunnelingStatus.startTunnelNodeId) {
+            drawTunnelNode(myTunnelingStatus.tunnelStartPosition);
+        }
+        if (!myTunnelingStatus.endTunnelNodeId) {
+            drawTunnelNode(myTunnelingStatus.tunnelEndPosition);
+        }
     }
 
     if (myID in playerTargetPositions) {
@@ -816,7 +822,7 @@ function animateScene() {
 
 
 
-        let mypos = getMyPosition(myID);
+        let mypos = getPlayerPosition(myID);
         let posVec = new Vector(mypos[0], mypos[1], 0);
         let cameraVec = new Vector(cameraTranslate[0], cameraTranslate[1], 0);
         let adjustmentVec = posVec.subtract(cameraVec);
