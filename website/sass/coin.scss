@@ -17,9 +17,18 @@ body {
     z-index: 1;
 }
 
+.skillInfo .modal-content ul {
+    list-style-type: none;
+    li {
+        line-height: 2em;
+        font-size: 1.4em;
+    }
+}
+
 .modal {
     display: grid;
     grid-template-columns: auto 1em;
+    grid-template-rows: fit-content(1em) auto;
     color: white;
     position: fixed;
     z-index: 3;
@@ -39,15 +48,12 @@ body {
         margin-bottom: 1em;
     }
 
-    ul.modal-content {
-        grid-column: 1 / 3;
+    .modal-content {
         overflow: auto;
         padding: 0 3em 0 1em;
-        list-style-type: none;
-        li {
-            line-height: 2em;
-            font-size: 1.4em;
-        }
+        grid-column: 1 / 3;
+        grid-row: 2;
+        background-color: rgb(34, 34, 34);
     }
 
     .close {

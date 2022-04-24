@@ -139,9 +139,9 @@ public class CoinGameState {
 	}
 	
 	public void playerUnlocksTunneling(PlayerInfo player) {
-		if (player.tunnelingLevel == 0 && player.numcoins >= Constants.UNLOCK_TUNNELING_COST) {
+		if (player.tunnelingExp == 0 && player.numcoins >= Constants.UNLOCK_TUNNELING_COST) {
 			player.numcoins -= 1000;
-			player.tunnelingLevel = 1;
+			player.tunnelingExp = 1;
 			updatePlayerInfo(player);
 		}
 	}
@@ -164,7 +164,7 @@ public class CoinGameState {
 		newTunnelSegments.add(segment);
 		playerToTunnels.get(playerid).add(segment);
 		
-		loadedPlayerInfo.get(playerid).tunnelingLevel += 10 + segment.length()/100;
+		loadedPlayerInfo.get(playerid).tunnelingExp += 10 + segment.length()/100;
 		updatePlayerInfo(loadedPlayerInfo.get(playerid));
 		
 		return segment;
@@ -172,6 +172,11 @@ public class CoinGameState {
 	
 	public boolean doesTunnelNodeExist(int nodeid) {
 		return loadedTunnelNodes.containsKey(nodeid);
+	}
+	
+	public Vec2 getTunnelNodePosition(int nodeid) {
+		TunnelNode node = loadedTunnelNodes.get(nodeid);
+		return new Vec2(node.x, node.y);
 	}
 	
 	public List<TunnelSegment> getTunnelsOfPlayer(int playerid) {

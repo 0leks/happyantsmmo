@@ -229,7 +229,7 @@ public class CoinDB {
 			updatePlayerInfoStatement.setInt(1, info.x);
 			updatePlayerInfoStatement.setInt(2, info.y);
 			updatePlayerInfoStatement.setInt(3, info.numcoins);
-			updatePlayerInfoStatement.setInt(4, info.tunnelingLevel);
+			updatePlayerInfoStatement.setInt(4, info.tunnelingExp);
 			updatePlayerInfoStatement.setInt(5, info.id);
 			updatePlayerInfoStatement.executeUpdate();
 		} catch (SQLException e) {

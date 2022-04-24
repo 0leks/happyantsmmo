@@ -91,6 +91,20 @@ function exitGame() {
     document.location.href = "/";
 }
 
+function openAdminPanel() {
+    unhideElement(id("adminPanel"));
+}
+
+function sendTunnelingExp() {
+    let jsonData = {
+        'type': 'TEST',
+        'setTunnelingExp': id("adminInput").value
+    };
+    let tosend = JSON.stringify(jsonData);
+    console.log('sending ' + tosend);
+    ws.send(tosend);
+}
+
 function sendHello() {
     let jsonData = {
         'type': 'HELLO',
@@ -174,10 +188,8 @@ function getTunnelNodeIdAtPoint(point) {
     return null;
 }
 function mousePressed(e) {
-
+    mouseMoved(e);
     if (e.button == 2) {
-        placingNewTunnelFromNode = null;
-        placingNewTunnelFromLocation = null;
         placingTunnel = false;
         updatePlaceTunnelButton();
         return;
@@ -187,6 +199,7 @@ function mousePressed(e) {
     }
 }
 function mouseReleased(e) {
+    mouseMoved(e);
     if (placingTunnel) {
         sendNewTunnel(myTunnelingStatus);
     }
@@ -198,6 +211,7 @@ function receiveHelloMessage(data) {
 
     if (myID == ADMIN_ID) {
         unhideElement(id("stopGameButton"));
+        unhideElement(id("adminButton"));
     }
 }
 
@@ -291,7 +305,7 @@ function receiveMessage(msg) {
                 playerPositions[player.id] = [player.x, player.y];
                 updatePlayerInfo(player.id, 'id', player.id);
                 updatePlayerInfo(player.id, 'numcoins', player.numcoins);
-                updatePlayerInfo(player.id, 'tunnelingLevel', player.tunnelingLevel);
+                updatePlayerInfo(player.id, 'tunnelingExp', player.tunnelingExp);
 
                 if ('target' in player) {
                     playerTargetPositions[player.id] = {
@@ -353,28 +367,28 @@ function openSkillInfo() {
     unhideElement(id("skillInfo"));
 }
 
-function closeSkillInfo() {
-    hideElement(id("skillInfo"));
+function closeParent(element) {
+    hideElement(element.parentNode);
 }
+
+let experienceTable = [0,1,66,137,212,293,381,474,575,683,799,924,1057,1201,1356,1521,1700,1891,2096,2317,
+    2554,2809,3082,3376,3691,4030,4394,4785,5205,5656,6140,6660,7219,7819,8463,9155,9898,10697,11554,12475,
+    13464,14527,15668,16893,18210,19624,21142,22773,24524,26406,28426,30597,32928,35431,38120,41008,44110,
+    47441,51019,54862,58990,63423,68184,73298,78791,84690,91026,97831,105140,112991,121422,130478,140204,
+    150650,161870,173921,186864,200765,215695,231731,248954,267453,287321,308660,331579,356195,382634,411030,
+    441529,474286,509468,547255,587840,631430,678248,728532,782539,840545,902845,969759,969759+1];
 
 function getLevelFromExperience(exp) {
     if (exp <= 0) {
         return 0;
     }
-    else if (exp >= 969819) {
+    else if (exp >= experienceTable[99]) {
         return 99;
     }
     else {
-        return Math.floor(14*Math.log(exp + 825) - 94);
+        return Math.floor(14*Math.log(exp + 885) - 94);
     }
 }
-
-let experienceTable = [0,61,126,197,272,353,441,534,635,743,859,984,1117,1261,1416,1581,1760,1951,2156,2377,
-    2614,2869,3142,3436,3751,4090,4454,4845,5265,5716,6200,6720,7279,7879,8523,9215,9958,10757,11614,12535,
-    13524,14587,15728,16953,18270,19684,21202,22833,24584,26466,28486,30657,32988,35491,38180,41068,44170,
-    47501,51079,54922,59050,63483,68244,73358,78851,84750,91086,97891,105200,113051,121482,130538,140264,
-    150710,161930,173981,186924,200825,215755,231791,249014,267513,287381,308720,331639,356255,382694,411090,
-    441589,474346,509528,547315,587900,631490,678308,728592,782599,840605,902905,969819, 969819+1];
 function getPercentToNextLevel(exp) {
     if (exp >= experienceTable[99]) {
         return {base: experienceTable[99], next: experienceTable[100]}
@@ -407,8 +421,8 @@ let placeTunnelButton = id("tunnelButton");
 let unlockTunnelingButton = id("unlockTunnelingButton");
 let tunnelingSkillButton = id("skillInfoButton");
 function updatePlaceTunnelButton() {
-    if ('tunnelingLevel' in playerInfos[myID]) {
-        let currentExp = playerInfos[myID].tunnelingLevel;
+    if ('tunnelingExp' in playerInfos[myID]) {
+        let currentExp = getPlayerInfo(myID, 'tunnelingExp');
         let currentLevel = getLevelFromExperience(currentExp);
         let experienceRange = getPercentToNextLevel(currentExp);
         id("tunnelingLevel").innerHTML = currentLevel;
@@ -422,14 +436,14 @@ function updatePlaceTunnelButton() {
         placeTunnelButton.disabled = true;
         return;
     }
-    if (playerInfos[myID].tunnelingLevel > 0) {
+    if (playerInfos[myID].tunnelingExp > 0) {
         placeTunnelButton.disabled = false;
         unhideElement(placeTunnelButton)
         
         unlockTunnelingButton.disabled = true;
         hideElement(unlockTunnelingButton);
 
-        if (playerInfos[myID].tunnelingLevel > 1) {
+        if (playerInfos[myID].tunnelingExp > 1) {
             unhideElement(tunnelingSkillButton);
             tunnelingSkillButton.disabled = false;
         }
@@ -769,7 +783,7 @@ function animateScene() {
             // textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText(getPlayerInfo(id, 'handle'), playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText('' + getPlayerInfo(id, 'numcoins'), playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
-            // textContext.fillText('tunnel: ' + getPlayerInfo(id, 'tunnelingLevel'), playerPositions[id][0], -playerPositions[id][1] + 40*WORLD_SCALE);
+            // textContext.fillText('tunnel: ' + getPlayerInfo(id, 'tunnelingExp'), playerPositions[id][0], -playerPositions[id][1] + 40*WORLD_SCALE);
         }
     }
     textContext.fillText(loadingMessage, 0, 0);

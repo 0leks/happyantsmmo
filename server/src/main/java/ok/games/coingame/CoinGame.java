@@ -6,6 +6,8 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
 
+import javax.swing.JOptionPane;
+
 import org.json.*;
 import org.springframework.http.*;
 import org.springframework.web.socket.TextMessage;
@@ -76,10 +78,6 @@ public class CoinGame {
 	
 	private void stopGame(PlayerInfo player) {
 		System.out.println(player + " tried to stop game");
-		
-//		player.tunnelingLevel = 0;
-//		state.updatePlayerInfo(player);
-//		changedLocations.add(player.id);
 		
 		// only admin account can stop the game
 		if (player.id != 1) {
@@ -152,6 +150,7 @@ public class CoinGame {
 		System.err.println(info.handle + " joined game");
 		
 		JSONObject obj = new JSONObject(playerInfo);
+		System.out.println(obj.toString());
 		obj.put("type", MessageType.HELLO);
 		sendToOne(obj.toString(), ctx);
 		shareAllCoinsWith(ctx);
@@ -204,7 +203,6 @@ public class CoinGame {
 	
 	public void receiveTunnel(PlayerInfo player, JSONObject message) {
 		int nodeid1 = -1;
-		int nodeid2 = -1;
 		if (message.has("nodeid1")) {
 			nodeid1 = message.getInt("nodeid1");
 		}
@@ -214,22 +212,45 @@ public class CoinGame {
 			TunnelNode node = state.createNewTunnelNode(x, y, player.id);
 			nodeid1 = node.id;
 		}
-		if (message.has("nodeid2")) {
-			nodeid2 = message.getInt("nodeid2");
-		}
-		else {
-			int x = message.getInt("x2");
-			int y = message.getInt("y2");
-			TunnelNode node = state.createNewTunnelNode(x, y, player.id);
-			nodeid2 = node.id;
-		}
-		
 		if (!state.doesTunnelNodeExist(nodeid1)) {
 			System.err.println("ERROR MAKING TUNNEL");
+		}
+		
+		Vec2 node2Pos = null;
+		if (message.has("nodeid2") && state.doesTunnelNodeExist(message.getInt("nodeid2"))) {
+			node2Pos = state.getTunnelNodePosition(message.getInt("nodeid2"));
+		}
+		else {
+			node2Pos = new Vec2(message.getInt("x2"), message.getInt("y2"));
+		}
+
+		int nodeid2 = -1;
+		Vec2 node1Pos = state.getTunnelNodePosition(nodeid1);
+		double proposedLength = node1Pos.distanceTo(node2Pos);
+		int maxLength = Constants.getMaxSegmentLength(player._getTunnelingLevel());
+		
+		if (proposedLength > maxLength) {
+			
+			Vec2 tunnelVector = node2Pos.minus(node1Pos);
+			Vec2 croppedVector = tunnelVector.multiply(maxLength / tunnelVector.magnitude());
+			node2Pos = node1Pos.add(croppedVector);
+			
+			TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
+			nodeid2 = node.id;
+		}
+		else {
+			if (message.has("nodeid2")) {
+				nodeid2 = message.getInt("nodeid2");
+			}
+			else {
+				TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
+				nodeid2 = node.id;
+			}
 		}
 		if (!state.doesTunnelNodeExist(nodeid2)) {
 			System.err.println("ERROR MAKING TUNNEL");
 		}
+		
 		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, nodeid2, player.id);
 		
 		JSONObject obj = new JSONObject();
@@ -255,6 +276,21 @@ public class CoinGame {
 			player.y = 0;
 			changedLocations.add(player.id);
 			sendLocations(false);
+		}
+	}
+	
+	private void receiveTestMessage(PlayerInfo player, JSONObject obj) {
+		System.out.println(obj.toString());
+		if (obj.has("setTunnelingExp")) {
+			try {
+				int newTunnelingExp = Integer.parseInt(obj.getString("setTunnelingExp"));
+				player.tunnelingExp = newTunnelingExp;
+				state.updatePlayerInfo(player);
+				changedLocations.add(player.id);
+			}
+			catch (NumberFormatException e) {
+				
+			}
 		}
 	}
 	
@@ -292,6 +328,10 @@ public class CoinGame {
 			
 		case TELEPORT:
 			teleport(player, obj.getString("target"));
+			break;
+			
+		case TEST:
+			receiveTestMessage(player, obj);
 			break;
 			
 		default:

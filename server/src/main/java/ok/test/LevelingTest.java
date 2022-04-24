@@ -1,6 +1,6 @@
 package ok.test;
 
-import ok.util.Util;
+import ok.games.coingame.Constants;
 
 public class LevelingTest {
 	
@@ -10,7 +10,7 @@ public class LevelingTest {
 		int previousLevel = -1;
 		int previousExp = 0;
 		for (int exp = 0; exp < 1000000; exp += 1) {
-			double level = Util.getLevelFromExperience(exp);
+			double level = Constants.getLevelFromExperience(exp);
 			int roundedLevel = (int)level;
 			
 			if (roundedLevel > previousLevel) {
@@ -26,7 +26,7 @@ public class LevelingTest {
 		System.out.println("TESTING LEVEL PERCENTS");
 		double previousLevel = 10;
 		for (int exp = 859; exp < 984; exp += 1) {
-			double level = Util.getLevelFromExperience(exp);
+			double level = Constants.getLevelFromExperience(exp);
 			double delta = level - previousLevel;
 			System.out.println(String.format("%.04f   +%f", level, delta));
 			previousLevel = level;
@@ -37,7 +37,7 @@ public class LevelingTest {
 		int[] table = new int[100];
 		int previousLevel = -1;
 		for (int exp = 0; exp < 1000000; exp += 1) {
-			int level = Util.getLevelFromExperience(exp);
+			int level = Constants.getLevelFromExperience(exp);
 			if (level > previousLevel) {
 				table[level] = exp;
 				previousLevel = level;

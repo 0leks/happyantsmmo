@@ -46,33 +46,37 @@
         Oh no! Your browser doesn't support canvas!
         </canvas>
         <canvas id="textCanvas" oncontextmenu="event.preventDefault();"></canvas>
-        <div id="skillInfo" class="modal hidden">
-            <span onclick="closeSkillInfo()" class="close">&times;</span>
+        <div id="skillInfo" class="modal hidden skillInfo">
+            <span onclick="closeParent(this)" class="close">&times;</span>
             <h1>Tunneling</h1>
-            <ul class="modal-content">
-                <li>3: segments per tunnel 2</li>
-                <li>6: segment length 300</li>
-                <li>12: segments per tunnel 3</li>
-                <li>14: segment length 350</li>
-                <li>17: number of tunnels 2</li>
-                <li>21: segments per tunnel 4</li>
-                <li>23: segment length 400</li>
-                <li>30: segments per tunnel 5</li>
-                <li>33: segment length 450</li>
-                <li>34: number of tunnels 3</li>
-                <li>39: segments per tunnel 6</li>
-                <li>44: segment length 500</li>
-                <li>48: segments per tunnel 7</li>
-                <li>51: number of tunnels 4</li>
-                <li>58: segment length 550</li>
-                <li>57: segments per tunnel 8</li>
-                <li>66: segments per tunnel 9</li>
-                <li>68: number of tunnels 5</li>
-                <li>71: segment length 600</li>
-            </ul>
+            <div class="modal-content">
+                <ul>
+                    <li>03: segments per tunnel 2</li>
+                    <li>06: segment length 300</li>
+                    <li>12: segments per tunnel 3</li>
+                    <li>14: segment length 350</li>
+                    <li>17: number of tunnels 2</li>
+                    <li>20: split segments</li>
+                    <li>21: segments per tunnel 4</li>
+                    <li>23: segment length 400</li>
+                    <li>30: segments per tunnel 5</li>
+                    <li>33: segment length 450</li>
+                    <li>34: number of tunnels 3</li>
+                    <li>39: segments per tunnel 6</li>
+                    <li>44: segment length 500</li>
+                    <li>48: segments per tunnel 7</li>
+                    <li>51: number of tunnels 4</li>
+                    <li>58: segment length 550</li>
+                    <li>57: segments per tunnel 8</li>
+                    <li>66: segments per tunnel 9</li>
+                    <li>68: number of tunnels 5</li>
+                    <li>71: segment length 600</li>
+                </ul>
+            </div>
         </div>
         <menu id="controls">
             <button onclick="exitGame()">Exit</button>
+            <button onclick="openAdminPanel()" id="adminButton" class="hidden">Admin Panel</button>
             <button onclick="sendStopGame()" id="stopGameButton" class="hidden">Stop Game</button>
             <button onclick="homeTeleport()" id="homeTeleportButton">Home Teleport</button>
             <button onclick="unlockTunneling()" id="unlockTunnelingButton" class="hidden" disabled>Unlock Tunneling</button>
@@ -82,6 +86,17 @@
             </button>
             <button onclick="placeTunnel()" id="tunnelButton" class="hidden" disabled>Enter Tunneling Mode</button>
         </menu>
+
+        <div id="adminPanel" class="modal hidden">
+            <span onclick="closeParent(this)" class="close">&times;</span>
+            <h1>Admin Panel</h1>
+            
+            <div class="modal-content">
+                <textarea id="adminInput"></textarea>
+                <button onclick="sendTunnelingExp()">Update Tunneling Exp</button>
+            </div>
+        </div>
+
 
         <script src="/js/vector.js" type="text/javascript"></script>
         <script src="/js/util.js" type="text/javascript"></script>
