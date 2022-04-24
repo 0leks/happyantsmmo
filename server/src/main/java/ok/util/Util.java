@@ -34,4 +34,16 @@ public class Util {
 		double d = Math.abs(a * point.x + b * point.y + c) / Math.sqrt(a*a + b*b);
 		return d;
 	}
+	
+	public static final int getLevelFromExperience(int exp) {
+		if (exp <= 0) {
+			return 0;
+		}
+		else if (exp >= 969819) {
+			return 99;
+		}
+		else {
+			return (int)(14*Math.log(exp + 825) - 94);
+		}
+	}
 }

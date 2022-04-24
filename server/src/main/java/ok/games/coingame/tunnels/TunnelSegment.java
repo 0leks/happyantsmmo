@@ -2,6 +2,8 @@ package ok.games.coingame.tunnels;
 
 import java.beans.JavaBean;
 
+import ok.games.math.Vec2;
+
 @JavaBean
 public class TunnelSegment {
 
@@ -38,6 +40,10 @@ public class TunnelSegment {
 	}
 	public void setPlayerid(int playerid) {
 		this.playerid = playerid;
+	}
+	
+	public double length() {
+		return new Vec2(node1.x, node1.y).distanceTo(new Vec2(node2.x, node2.y));
 	}
 	
 	

@@ -163,6 +163,10 @@ public class CoinGameState {
 												playerid);
 		newTunnelSegments.add(segment);
 		playerToTunnels.get(playerid).add(segment);
+		
+		loadedPlayerInfo.get(playerid).tunnelingLevel += 10 + segment.length()/100;
+		updatePlayerInfo(loadedPlayerInfo.get(playerid));
+		
 		return segment;
 	}
 	

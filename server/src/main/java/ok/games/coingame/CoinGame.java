@@ -76,6 +76,11 @@ public class CoinGame {
 	
 	private void stopGame(PlayerInfo player) {
 		System.out.println(player + " tried to stop game");
+		
+//		player.tunnelingLevel = 0;
+//		state.updatePlayerInfo(player);
+//		changedLocations.add(player.id);
+		
 		// only admin account can stop the game
 		if (player.id != 1) {
 			return;
@@ -233,6 +238,8 @@ public class CoinGame {
 		arr.put(new JSONObject(segment));
 		obj.put("tunnels", arr);
 		sendToOne(obj.toString(), idToContextMap.get(player.id));
+
+		changedLocations.add(player.id);
 	}
 	
 	private void unlockSkill(PlayerInfo player, String skill) {

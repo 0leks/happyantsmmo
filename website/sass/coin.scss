@@ -84,4 +84,19 @@ body {
         pointer-events: auto;
         padding: 1em;
     }
+
+    #skillInfoButton {
+        position: relative;
+        meter {
+            position: absolute;
+            left:0;
+            bottom:0;
+            right: 0;
+            width: 100%;
+        }
+        meter::-webkit-meter-optimum-value {
+            transition: width 3s ease;
+            -webkit-transition: width 3s ease;
+        }
+    }
 }
