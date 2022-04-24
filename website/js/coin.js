@@ -187,6 +187,22 @@ function sendNewTunnel(myTunnelingStatus) {
         data.y2 = myTunnelingStatus.tunnelEndPosition.y;
     }
     ws.send(JSON.stringify(data));
+    placingTunnel = false;
+}
+
+function sendCollapseTunnel(myTunnelingStatus) {
+    if (myTunnelingStatus.startTunnelNodeId 
+        && myTunnelingStatus.endTunnelNodeId) {
+        let data = {
+            'type': 'TUNNEL',
+            'collapse': {
+                nodeid1: myTunnelingStatus.startTunnelNodeId,
+                nodeid2: myTunnelingStatus.endTunnelNodeId
+            }
+        };
+        ws.send(JSON.stringify(data));
+        collapsingTunnel = false;
+    }
 }
 
 id("textCanvas").addEventListener('mousedown', mousePressed, false);
@@ -224,10 +240,11 @@ function mousePressed(e) {
     mouseMoved(e);
     if (e.button == 2) {
         placingTunnel = false;
+        collapsingTunnel = false;
         updatePlaceTunnelButton();
         return;
     }
-    if ( !placingTunnel) {
+    if ( !placingTunnel && !collapsingTunnel) {
         sendMove(mousePos[0], mousePos[1]);
     }
 }
@@ -235,6 +252,9 @@ function mouseReleased(e) {
     mouseMoved(e);
     if (placingTunnel) {
         sendNewTunnel(myTunnelingStatus);
+    }
+    if (collapsingTunnel) {
+        sendCollapseTunnel(myTunnelingStatus);
     }
 }
 
@@ -377,14 +397,19 @@ function playersDisconnected(ids) {
 }
 
 let UNLOCK_TUNNELING_COST = 1000;
-let TUNNEL_COST = 1100;
+let TUNNEL_COST = 0;
 let placingTunnel = false;
+let collapsingTunnel = false;
 function placeTunnel() {
     if (playerInfos[myID].numcoins >= TUNNEL_COST) {
         console.log("Placing tunnel");
         placingTunnel = true;
         updatePlaceTunnelButton();
     }
+}
+
+function collapseTunnel() {
+    collapsingTunnel = true;
 }
 
 function unlockTunneling() {
@@ -454,6 +479,7 @@ function testLevelFromExperience() {
 window.addEventListener("load", startup, false);
 
 let placeTunnelButton = id("tunnelButton");
+let collapseTunnelButton = id("collapseTunnelButton");
 let unlockTunnelingButton = id("unlockTunnelingButton");
 let tunnelingSkillButton = id("skillInfoButton");
 function updatePlaceTunnelButton() {
@@ -494,6 +520,12 @@ function updatePlaceTunnelButton() {
             unhideElement(unlockTunnelingButton);
             unlockTunnelingButton.disabled = false;
         }
+    }
+
+    if (playerInfos[myID].tunnelingExp > 0
+            && tunnelSegments.length > 0) {
+        unhideElement(collapseTunnelButton);
+        collapseTunnelButton.disabled = false;
     }
 }
 
@@ -722,7 +754,9 @@ function drawTunnelNode(node, invalidSegment) {
     textContext.lineWidth = WORLD_SCALE;
     textContext.beginPath();
     textContext.arc(node.x, -node.y, tunnelSize/2, 0, 2 * Math.PI);
-    textContext.fill();
+    if (!invalidSegment) {
+        textContext.fill();
+    }
 
     textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelNodeOutlineColor;
     textContext.stroke();
@@ -739,7 +773,9 @@ function drawTunnelSegment(node1, node2, invalidSegment) {
     textContext.beginPath();
     textContext.moveTo(node1.x, -node1.y);
     textContext.lineTo(node2.x, -node2.y);
-    textContext.stroke();
+    if (!invalidSegment) {
+        textContext.stroke();
+    }
     textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelLineColor;
     textContext.lineWidth = WORLD_SCALE;
     textContext.stroke();
@@ -836,7 +872,7 @@ function animateScene() {
         drawTunnelNode(node);
     }
 
-    if (placingTunnel) {
+    if (placingTunnel || collapsingTunnel) {
         myPosition = getPlayerPosition(myID);
 
         myTunnelingStatus.startTunnelNodeId = getTunnelNodeIdAtPoint(myPosition);
@@ -847,8 +883,6 @@ function animateScene() {
             myTunnelingStatus.tunnelStartPosition = {x: playerPositions[myID][0], y: playerPositions[myID][1]};
         }
 
-            
-
         myTunnelingStatus.endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
         if (myTunnelingStatus.endTunnelNodeId) {
             myTunnelingStatus.tunnelEndPosition = tunnelNodes[myTunnelingStatus.endTunnelNodeId];
@@ -856,7 +890,9 @@ function animateScene() {
         else {
             myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
         }
+    }
         
+    if (placingTunnel) {
         let startVec = new Vector(myTunnelingStatus.tunnelStartPosition.x, 
                                 myTunnelingStatus.tunnelStartPosition.y, 
                                 0);
@@ -889,6 +925,23 @@ function animateScene() {
         }
         if (!myTunnelingStatus.endTunnelNodeId) {
             drawTunnelNode(endVec);
+        }
+    }
+
+    if (collapsingTunnel) {
+        if (myTunnelingStatus.startTunnelNodeId 
+            && myTunnelingStatus.endTunnelNodeId) {
+            drawTunnelSegment(myTunnelingStatus.tunnelStartPosition, 
+                                myTunnelingStatus.tunnelEndPosition, 
+                                true);
+            drawTunnelNode(myTunnelingStatus.tunnelStartPosition, true);
+            drawTunnelNode(myTunnelingStatus.tunnelEndPosition, true);
+        }
+        else {
+            drawTunnelSegment(myTunnelingStatus.tunnelStartPosition, 
+                                myTunnelingStatus.tunnelEndPosition, 
+                                true);
+            drawTunnelNode(myTunnelingStatus.tunnelEndPosition, false);
         }
     }
 

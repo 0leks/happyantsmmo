@@ -194,14 +194,35 @@ public class CoinGame {
 		}
 	}
 	
-	public void receiveMove(PlayerInfo player, int x, int y) {
+	private void receiveMove(PlayerInfo player, int x, int y) {
 		movePlayer(player);
 		playerTargetLocations.put(player, new Vec3(x, y, currentTime()));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
 	
-	public void receiveTunnel(PlayerInfo player, JSONObject message) {
+	private void receiveTunnelCollapse(PlayerInfo player, JSONObject obj) {
+		int nodeid1 = obj.getInt("nodeid1");
+		int nodeid2 = obj.getInt("nodeid2");
+
+		if (!state.doesTunnelNodeExist(nodeid1) || !state.doesTunnelNodeExist(nodeid2)) {
+			System.err.println("ERROR COLLAPSING TUNNEL");
+			return;
+		}
+		
+		Vec2 targetPos = state.getTunnelNodePosition(nodeid2);
+		movePlayer(player);
+		playerTargetLocations.put(player, new Vec3(targetPos.x, targetPos.y, currentTime()));
+		changedLocations.add(player.id);
+		sendLocations(false);
+	}
+	
+	private void receiveTunnel(PlayerInfo player, JSONObject message) {
+		
+		if (message.has("collapse")) {
+			receiveTunnelCollapse(player, message.getJSONObject("collapse"));
+			return;
+		}
 		int nodeid1 = -1;
 		if (message.has("nodeid1")) {
 			nodeid1 = message.getInt("nodeid1");
@@ -268,8 +289,11 @@ public class CoinGame {
 		arr.put(new JSONObject(segment));
 		obj.put("tunnels", arr);
 		sendToOne(obj.toString(), idToContextMap.get(player.id));
-
+		
+		movePlayer(player);
+		playerTargetLocations.put(player, new Vec3(segment.node2.x, segment.node2.y, currentTime()));
 		changedLocations.add(player.id);
+		sendLocations(false);
 	}
 	
 	private void unlockSkill(PlayerInfo player, String skill) {
