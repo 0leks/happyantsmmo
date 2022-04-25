@@ -78,7 +78,9 @@
                 Tunneling: <span id="tunnelingLevel">0</span>
                 <meter id="tunnelingLevelProgress" min="0" max="100" value="0"></meter>
             </button>
-            <button onclick="placeTunnel()" id="tunnelButton" class="hidden" disabled>Dig Tunnel</button>
+            <button onclick="placeTunnel()" id="tunnelButton" class="hidden" disabled>
+                Dig Tunnel <span id="tunnelCostSpan">0</span>+&Sqrt;length
+            </button>
             <button onclick="collapseTunnel()" id="collapseTunnelButton" class="hidden" disabled>Collapse Tunnel</button>
         </menu>
 

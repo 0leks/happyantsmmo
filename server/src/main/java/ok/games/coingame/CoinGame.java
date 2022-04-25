@@ -264,11 +264,22 @@ public class CoinGame {
 		sendLocations(false);
 	}
 	
+	private Rectangle getRoomForPoint(int x, int y) {
+		Point p = new Point(x, y);
+		for (Rectangle room : mapRooms) {
+			if (room.contains(p)) {
+				return room;
+			}
+		}
+		return null;
+	}
+	
 	private void receiveTunnel(PlayerInfo player, JSONObject message) {
 		if (message.has("collapse")) {
 			receiveTunnelCollapse(player, message.getJSONObject("collapse"));
 			return;
 		}
+		Rectangle node1Room = null;
 		int nodeid1 = -1;
 		if (message.has("nodeid1")) {
 			nodeid1 = message.getInt("nodeid1");
@@ -276,13 +287,9 @@ public class CoinGame {
 		else {
 			int x = message.getInt("x1");
 			int y = message.getInt("y1");
-			boolean validTunnelStart = false;
-			for (Rectangle room : mapRooms) {
-				if (room.contains(new Point(x, y))) {
-					validTunnelStart = true;
-				}
-			}
-			if (!validTunnelStart) {
+			node1Room = getRoomForPoint(x, y);
+			if (node1Room == null) {
+				System.out.println("ERROR MAKING TUNNEL: node1 outside of room");
 				return;
 			}
 			TunnelNode node = state.createNewTunnelNode(x, y, player.id);
@@ -291,7 +298,10 @@ public class CoinGame {
 		if (!state.doesTunnelNodeExist(nodeid1)) {
 			System.err.println("ERROR MAKING TUNNEL");
 		}
-		// TODO validate player is close enough to node1
+		Vec2 node1Pos = state.getTunnelNodePosition(nodeid1);
+		if (node1Room == null) {
+			node1Room = getRoomForPoint(node1Pos.x, node1Pos.y);
+		}
 		
 		Vec2 node2Pos = null;
 		if (message.has("nodeid2") && state.doesTunnelNodeExist(message.getInt("nodeid2"))) {
@@ -303,7 +313,6 @@ public class CoinGame {
 
 		int nodeid2 = -1;
 		TunnelNode createdNode2 = null;
-		Vec2 node1Pos = state.getTunnelNodePosition(nodeid1);
 		double proposedLength = node1Pos.distanceTo(node2Pos);
 		int maxLength = Constants.getMaxSegmentLength(player._getTunnelingLevel());
 		
@@ -317,18 +326,32 @@ public class CoinGame {
 //			TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
 //			nodeid2 = node.id;
 		}
+		
+		// both nodes in same room == cheaper
+		int cost = 100 + (int)(Math.sqrt(proposedLength / 10));
+		if (node1Room == null || !node1Room.contains(new Point(node2Pos.x, node2Pos.y))) {
+			cost += 10 * state.getPlayerTunnels(player.id).size();
+		}
+		
+		if (player.numcoins < cost) {
+			System.out.println("ERROR MAKING TUNNEL: not enough funds");
+			return;
+		}
+		
+		createdNode2 = state.createNewTunnelNode(node1Pos.x, node1Pos.y, player.id);
+		if (message.has("nodeid2")) {
+			nodeid2 = message.getInt("nodeid2");
+		}
 		else {
-			createdNode2 = state.createNewTunnelNode(node1Pos.x, node1Pos.y, player.id);
-			if (message.has("nodeid2")) {
-				nodeid2 = message.getInt("nodeid2");
-			}
-			else {
-				nodeid2 = createdNode2.id;
-			}
+			nodeid2 = createdNode2.id;
 		}
 		if (!state.doesTunnelNodeExist(nodeid2)) {
 			System.err.println("ERROR MAKING TUNNEL");
+			return;
 		}
+		
+		player.numcoins -= cost;
+		state.updatePlayerInfo(player);
 		
 		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, createdNode2.id, player.id);
 		
