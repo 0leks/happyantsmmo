@@ -1,7 +1,7 @@
 
 let WORLD_SCALE = 10;
 let playerSpeed = 100*WORLD_SCALE;
-let tunnelSize = 50*WORLD_SCALE;
+let tunnelSize = 49*WORLD_SCALE;
 
 
 let gl = null;
@@ -948,7 +948,7 @@ function animateScene() {
         }
 
         let midPoint = startVec.add(endVec).multiply(0.5);
-        let cost = 100 + 10 * Object.keys(tunnelSegments).length 
+        let cost = 10 + 50 + 10 * Object.keys(tunnelSegments).length 
                     + Math.floor(Math.sqrt(deltaVec.length() / WORLD_SCALE));
         textContext.fillText('~$' + cost, midPoint.x, -midPoint.y);
     }

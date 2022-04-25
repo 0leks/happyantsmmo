@@ -328,7 +328,7 @@ public class CoinGame {
 		}
 		
 		// both nodes in same room == cheaper
-		int cost = 100 + (int)(Math.sqrt(proposedLength / 10));
+		int cost = 50 + (int)(Math.sqrt(proposedLength / 10));
 		if (node1Room == null || !node1Room.contains(new Point(node2Pos.x, node2Pos.y))) {
 			cost += 10 * state.getPlayerTunnels(player.id).size();
 		}
