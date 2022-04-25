@@ -318,7 +318,6 @@ function receiveTunnels(data) {
             }
         });
     }
-    id("tunnelCostSpan").innerHTML = (100 + 10 * Object.keys(tunnelSegments).length);
 }
 
 function myInfoUpdated() {
@@ -931,6 +930,7 @@ function animateScene() {
             let croppedVec = deltaVec.multiply(maxSegmentLength / deltaVec.length());
             endVec = startVec.add(croppedVec);
             myTunnelingStatus.tunnelEndPosition = endVec;
+            deltaVec = endVec.subtract(startVec);
         }
 
         let invalidSegment = false;

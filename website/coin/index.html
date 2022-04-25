@@ -51,7 +51,8 @@
             <h1>Tunneling</h1>
             <div class="modal-content">
                 <h2>Segment length = 300 + 5 &times; <i>Tunneling Level</i></h2>
-                <ul>
+                <h2>Segment cost = 100 + &Sqrt;<i class="sqrt">length</i> + 10 &times; <i># Segments</i></h2>
+                <!-- <ul>
                     <li>03: segments per tunnel 2</li>
                     <li>12: segments per tunnel 3</li>
                     <li>17: number of tunnels 2</li>
@@ -65,7 +66,7 @@
                     <li>57: segments per tunnel 8</li>
                     <li>66: segments per tunnel 9</li>
                     <li>68: number of tunnels 5</li>
-                </ul>
+                </ul> -->
             </div>
         </div>
         <menu id="controls">
@@ -78,9 +79,7 @@
                 Tunneling: <span id="tunnelingLevel">0</span>
                 <meter id="tunnelingLevelProgress" min="0" max="100" value="0"></meter>
             </button>
-            <button onclick="placeTunnel()" id="tunnelButton" class="hidden" disabled>
-                Dig Tunnel <span id="tunnelCostSpan">0</span>+&Sqrt;length
-            </button>
+            <button onclick="placeTunnel()" id="tunnelButton" class="hidden" disabled>Dig Tunnel</button>
             <button onclick="collapseTunnel()" id="collapseTunnelButton" class="hidden" disabled>Collapse Tunnel</button>
         </menu>
 
