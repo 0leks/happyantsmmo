@@ -19,6 +19,7 @@ public class CoinGameState {
 	private ConcurrentLinkedQueue<TunnelNode> newTunnelNodes = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<TunnelSegment> newTunnelSegments = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<TunnelSegment> deleteTunnelSegments = new ConcurrentLinkedQueue<>();
+	private ConcurrentLinkedQueue<TunnelNode> deleteTunnelNodes = new ConcurrentLinkedQueue<>();
 	private Map<Integer, Map<Integer, TunnelSegment>> playerToTunnels = new HashMap<>();
 	
 	private volatile int maxCoinID;
@@ -81,6 +82,14 @@ public class CoinGameState {
 			++collapsedTunnelSegmentsCount;
 		}
 		System.out.println("Saved " + collapsedTunnelSegmentsCount + " collapsed tunnel segments to DB");
+
+		int collapsedTunnelNodesCount = 0;
+		while (!deleteTunnelNodes.isEmpty()) {
+			TunnelNode node = deleteTunnelNodes.remove();
+			DB.coinsDB.deleteTunnelNode(node);
+			++collapsedTunnelNodesCount;
+		}
+		System.out.println("Saved " + collapsedTunnelNodesCount + " collapsed tunnel nodes to DB");
 	}
 	
 	public PlayerInfo getPlayerInfo(int id) {
@@ -155,6 +164,10 @@ public class CoinGameState {
 		}
 	}
 	
+	public void updateTunnelSegment(TunnelSegment segment) {
+		newTunnelSegments.add(segment);
+	}
+	
 	public TunnelNode updateTunnelNodePosition(int nodeid, Vec2 newPosition) {
 		TunnelNode node = loadedTunnelNodes.get(nodeid);
 		node.x = newPosition.x;
@@ -173,6 +186,11 @@ public class CoinGameState {
 		return node;
 	}
 	
+	public void playerGainsExp(PlayerInfo player, int exp) {
+		player.tunnelingExp += exp;
+		updatePlayerInfo(player);
+	}
+	
 	public TunnelSegment createNewTunnelSegment(int nodeid1, int nodeid2, int playerid) {
 		TunnelSegment segment = new TunnelSegment(++maxTunnelSegmentID, 
 												nodeid1, 
@@ -181,9 +199,9 @@ public class CoinGameState {
 		newTunnelSegments.add(segment);
 		playerToTunnels.get(playerid).put(segment.id, segment);
 		
-		double length = getTunnelNodePosition(nodeid1).distanceTo(getTunnelNodePosition(nodeid2));
-		loadedPlayerInfo.get(playerid).tunnelingExp += 10 + length/100;
-		updatePlayerInfo(loadedPlayerInfo.get(playerid));
+//		double length = getTunnelNodePosition(nodeid1).distanceTo(getTunnelNodePosition(nodeid2));
+//		loadedPlayerInfo.get(playerid).tunnelingExp += 10 + length/100;
+//		updatePlayerInfo(loadedPlayerInfo.get(playerid));
 		
 		return segment;
 	}
@@ -192,18 +210,34 @@ public class CoinGameState {
 		for (TunnelSegment segment : playerToTunnels.get(playerid).values()) {
 			if ((segment.node1 == nodeid1 && segment.node2 == nodeid2)
 					|| (segment.node1 == nodeid2 && segment.node2 == nodeid1)) {
-				
-				deleteTunnelSegments.add(segment);
-				playerToTunnels.get(playerid).remove(segment.id);
-				
-				double length = getTunnelNodePosition(nodeid1).distanceTo(getTunnelNodePosition(nodeid2));
-				loadedPlayerInfo.get(playerid).tunnelingExp += 1 + length/200;
-				updatePlayerInfo(loadedPlayerInfo.get(playerid));
-				
-				return segment;
+				return collapseTunnelSegment(segment.id, playerid);
+//				deleteTunnelSegments.add(segment);
+//				playerToTunnels.get(playerid).remove(segment.id);
+//				
+//				double length = getTunnelNodePosition(nodeid1).distanceTo(getTunnelNodePosition(nodeid2));
+//				loadedPlayerInfo.get(playerid).tunnelingExp += 1 + length/200;
+//				updatePlayerInfo(loadedPlayerInfo.get(playerid));
+//				
+//				return segment;
 			}
 		}
 		return null;
+	}
+	
+	public TunnelSegment collapseTunnelSegment(int segmentid, int playerid) {
+		TunnelSegment segment = playerToTunnels.get(playerid).get(segmentid);
+		deleteTunnelSegments.add(segment);
+		playerToTunnels.get(playerid).remove(segment.id);
+		
+//		double length = getTunnelNodePosition(segment.node1).distanceTo(getTunnelNodePosition(segment.node2));
+//		loadedPlayerInfo.get(playerid).tunnelingExp += 1 + length/200;
+//		updatePlayerInfo(loadedPlayerInfo.get(playerid));
+		
+		return segment;
+	}
+	
+	public void deleteNode(int nodeid) {
+		deleteTunnelNodes.add(loadedTunnelNodes.get(nodeid));
 	}
 	
 	public boolean doesTunnelNodeExist(int nodeid) {
@@ -212,6 +246,16 @@ public class CoinGameState {
 	
 	public TunnelNode getTunnelNode(int nodeid) {
 		return loadedTunnelNodes.get(nodeid);
+	}
+	
+	public Set<TunnelSegment> getTunnelSegmentFrom(int nodeid1, int playerid) {
+		Set<TunnelSegment> segments = new HashSet<>();
+		for (TunnelSegment segment : playerToTunnels.get(playerid).values()) {
+			if (segment.node1 == nodeid1 || segment.node2 == nodeid1) {
+				segments.add(segment);
+			}
+		}
+		return segments;
 	}
 	
 	public Collection<TunnelSegment> getPlayerTunnels(int playerid) {
@@ -228,9 +272,24 @@ public class CoinGameState {
 			playerToTunnels.put(playerid, new ConcurrentHashMap<>());
 		}
 		Map<Integer, TunnelSegment> playerTunnels = playerToTunnels.get(playerid);
-		List<TunnelSegment> tunnelSegments = DB.coinsDB.getTunnelsOfPlayer(playerid, loadedTunnelNodes);
+		Set<TunnelNode> playerNodes = new HashSet<>();
+		List<TunnelSegment> tunnelSegments = DB.coinsDB.getTunnelsOfPlayer(playerid, playerNodes);
+
+		// Dont override in-mem values
+		for (TunnelNode node : playerNodes) {
+			if (!loadedTunnelNodes.containsKey(node.id)) {
+				loadedTunnelNodes.put(node.id, node);
+			}
+		}
+
+		// Dont override in-mem values
 		for (TunnelSegment segment : tunnelSegments) {
-			playerTunnels.put(segment.id, segment);
+			if (!playerTunnels.containsKey(segment.id)) {
+				playerTunnels.put(segment.id, segment);
+			}
+			else {
+				segment = playerTunnels.get(segment.id);
+			}
 			nodes.add(loadedTunnelNodes.get(segment.node1));
 			nodes.add(loadedTunnelNodes.get(segment.node2));
 		}

@@ -111,6 +111,7 @@ public class CoinDB {
 			insertTunnelNodeStatement = connection.prepareStatement(insertTunnelNode);
 			insertTunnelSegmentStatement = connection.prepareStatement(insertTunnelSegment);
 			deleteTunnelSegmentStatement = connection.prepareStatement(deleteTunnelSegment);
+			deleteTunnelNodeStatement = connection.prepareStatement(deleteTunnelNode);
 		}
 		catch (Exception e) {
 			e.printStackTrace();
@@ -359,6 +360,18 @@ public class CoinDB {
 			e.printStackTrace();
 		}
 	}
+
+	private static final String deleteTunnelNode = 
+			"DELETE FROM " + TUNNEL_NODES_TABLE + " WHERE id=?;";
+	private PreparedStatement deleteTunnelNodeStatement;
+	public void deleteTunnelNode(TunnelNode node) {
+		try {
+			deleteTunnelNodeStatement.setInt(1, node.id);
+			deleteTunnelNodeStatement.execute();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+	}
 	
 
 	private static final String selectTunnelNodes = 
@@ -367,7 +380,7 @@ public class CoinDB {
 	private static final String selectTunnelSegments = 
 			"SELECT * FROM " + TUNNEL_SEGMENTS_TABLE + " WHERE playerid=?";
 	private PreparedStatement selectTunnelSegmentsStatement;
-	public List<TunnelSegment> getTunnelsOfPlayer(int playerid, Map<Integer, TunnelNode> nodes) {
+	public List<TunnelSegment> getTunnelsOfPlayer(int playerid, Set<TunnelNode> nodes) {
 		List<TunnelSegment> segmentList = new ArrayList<>();
 		try {
 			// load tunnel nodes belonging to player
@@ -378,7 +391,7 @@ public class CoinDB {
 													rs.getInt("x"), 
 													rs.getInt("y"), 
 													playerid);
-					nodes.put(node.id, node);
+					nodes.add(node);
 				}
 			}
 			// load tunnel segments belonging to player

@@ -219,6 +219,9 @@ function mouseMoved(e) {
 }
 function getTunnelNodeIdAtPoint(point) {
     for (const [id, node] of Object.entries(tunnelNodes)) {
+        if ('delete' in node) {
+            continue;
+        }
         let distance = Math.sqrt( (node.x - point[0]) ** 2 + (node.y - point[1]) ** 2 );
         let tunnelSize = 50*WORLD_SCALE / 2;
         if (distance < tunnelSize) {
@@ -292,6 +295,7 @@ function receiveTunnels(data) {
     if ('tunnelnodes' in data) {
         data.tunnelnodes.forEach(node => {
             if ('delete' in node) {
+                tunnelNodes[node.id] = node;
                 // TODO need to make sure this doesnt break any segments
                 // delete tunnelNodes[node.id];
             }
@@ -770,12 +774,14 @@ function drawTunnelNode(node, invalidSegment) {
         textContext.fill();
     }
 
-    textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelNodeOutlineColor;
-    textContext.stroke();
-    textContext.fillStyle = invalidSegment ? tunnelInvalidLineColor : tunnelLineColor;
-    textContext.beginPath();
-    textContext.arc(node.x, -node.y, tunnelSize/10, 0, 2 * Math.PI);
-    textContext.fill();
+    if (!('delete' in node)) {
+        textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelNodeOutlineColor;
+        textContext.stroke();
+        textContext.fillStyle = invalidSegment ? tunnelInvalidLineColor : tunnelLineColor;
+        textContext.beginPath();
+        textContext.arc(node.x, -node.y, tunnelSize/10, 0, 2 * Math.PI);
+        textContext.fill();
+    }
 }
 
 function drawTunnelSegment(node1, node2, invalidSegment) {
@@ -912,7 +918,7 @@ function animateScene() {
                                 myTunnelingStatus.tunnelEndPosition.y, 
                                 0);
         let deltaVec = endVec.subtract(startVec);
-        let maxSegmentLength = getMaxSegmentLength(myTunnelingStatus.tunnelingLevel);
+        let maxSegmentLength = getMaxSegmentLength(myTunnelingStatus.tunnelingLevel) - 1;
         if (myTunnelingStatus.endTunnelNodeId && deltaVec.length() > maxSegmentLength) {
             myTunnelingStatus.endTunnelNodeId = null;
             myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
@@ -923,6 +929,7 @@ function animateScene() {
         if (deltaVec.length() > maxSegmentLength) {
             let croppedVec = deltaVec.multiply(maxSegmentLength / deltaVec.length());
             endVec = startVec.add(croppedVec);
+            myTunnelingStatus.tunnelEndPosition = endVec;
         }
 
         let invalidSegment = false;

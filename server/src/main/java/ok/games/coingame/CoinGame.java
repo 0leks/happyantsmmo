@@ -225,23 +225,41 @@ public class CoinGame {
 			return;
 		}
 		
+		Set<TunnelSegment> affectedSegments = state.getTunnelSegmentFrom(nodeid1, player.id);
+		TunnelSegment collapsingSegment = null;
+		for (TunnelSegment segment : affectedSegments) {
+			if (segment.node1 == nodeid2 || segment.node2 == nodeid2) {
+				collapsingSegment = segment;
+			}
+		}
+		if (collapsingSegment == null) {
+			System.err.println("ERROR COLLAPSING TUNNEL: no segment between specified nodes");
+			return;
+		}
 		
-		// validate there is segment from node1 to node2
-//		TunnelSegment collapsed = state.collapseTunnelSegment(nodeid1, nodeid2, player.id);
-//		if (collapsed == null) {
-//			return;
-//		}
-		
-//		JSONObject obj = new JSONObject();
-//		obj.put("type", MessageType.TUNNEL);
-//		JSONArray arr = new JSONArray();
-//		arr.put(new JSONObject(collapsed).put("delete", true));
-//		obj.put("tunnels", arr);
-//		sendToOne(obj.toString(), idToContextMap.get(player.id));
+		if (affectedSegments.size() > 1) {
+			// need to make copy of node and update collapsing segment to use it
+			TunnelNode copyNode = state.createNewTunnelNode(nodePos.x, nodePos.y, player.id);
+			if (collapsingSegment.node1 == nodeid1) {
+				collapsingSegment.node1 = copyNode.id;
+			}
+			else {
+				collapsingSegment.node2 = copyNode.id;
+			}
+			nodeid1 = copyNode.id;
+			state.updateTunnelSegment(collapsingSegment);
+			JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL)
+					.put("tunnelnodes", new JSONArray().put(new JSONObject(copyNode)))
+					.put("tunnelsegments", new JSONArray().put(new JSONObject(collapsingSegment)));
+			sendToOne(obj.toString(), idToContextMap.get(player.id));
+		}
 		
 		Vec2 targetPos = state.getTunnelNodePosition(nodeid2);
 		movePlayer(player);
-		playerTargetLocations.put(player, PlayerAction.collapse(new Vec3(targetPos.x, targetPos.y, currentTime()), nodeid1));
+		playerTargetLocations.put(player, PlayerAction.collapse(
+				new Vec3(targetPos.x, targetPos.y, currentTime()), 
+				nodeid1,
+				collapsingSegment));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
@@ -284,44 +302,50 @@ public class CoinGame {
 		}
 
 		int nodeid2 = -1;
+		TunnelNode createdNode2 = null;
 		Vec2 node1Pos = state.getTunnelNodePosition(nodeid1);
 		double proposedLength = node1Pos.distanceTo(node2Pos);
 		int maxLength = Constants.getMaxSegmentLength(player._getTunnelingLevel());
 		
 		if (proposedLength > maxLength) {
-			
-			Vec2 tunnelVector = node2Pos.minus(node1Pos);
-			Vec2 croppedVector = tunnelVector.multiply(maxLength / tunnelVector.magnitude());
-			node2Pos = node1Pos.add(croppedVector);
-			
-			TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
-			nodeid2 = node.id;
+			System.err.println("ERROR DIGGING TUNNEL: too long " + proposedLength);
+			return;
+//			Vec2 tunnelVector = node2Pos.minus(node1Pos);
+//			Vec2 croppedVector = tunnelVector.multiply(maxLength / tunnelVector.magnitude());
+//			node2Pos = node1Pos.add(croppedVector);
+//			
+//			TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
+//			nodeid2 = node.id;
 		}
 		else {
+			createdNode2 = state.createNewTunnelNode(node1Pos.x, node1Pos.y, player.id);
 			if (message.has("nodeid2")) {
 				nodeid2 = message.getInt("nodeid2");
 			}
 			else {
-				TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
-				nodeid2 = node.id;
+				nodeid2 = createdNode2.id;
 			}
 		}
 		if (!state.doesTunnelNodeExist(nodeid2)) {
 			System.err.println("ERROR MAKING TUNNEL");
 		}
 		
-		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, nodeid2, player.id);
+		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, createdNode2.id, player.id);
 		
 		JSONArray nodeArr = new JSONArray()
 				.put(new JSONObject(state.getTunnelNode(nodeid1)))
-				.put(new JSONObject(state.getTunnelNode(nodeid2)));
+				.put(new JSONObject(createdNode2));
 		JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
 		obj.put("tunnelnodes", nodeArr);
 		obj.put("tunnelsegments", new JSONArray().put(new JSONObject(segment)));
 		sendToOne(obj.toString(), idToContextMap.get(player.id));
 		
 		movePlayer(player);
-		playerTargetLocations.put(player, PlayerAction.move(new Vec3(node2Pos.x, node2Pos.y, currentTime())));
+		playerTargetLocations.put(player, PlayerAction.dig(
+				new Vec3(node2Pos.x, node2Pos.y, currentTime()), 
+				createdNode2.id,
+				nodeid2,
+				segment));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
@@ -418,9 +442,15 @@ public class CoinGame {
 
 		Vec2 playerVec = new Vec2(player.x, player.y);
 		boolean validMove = false;
-		for (Rectangle room : mapRooms) {
-			if (room.contains(new Point(target.x, target.y))) {
-				validMove = true;
+		if (playerTargetLocations.get(player).type == PlayerActionType.DIG) {
+			validMove = true;
+		}
+		if (!validMove) {
+			for (Rectangle room : mapRooms) {
+				if (room.contains(new Point(target.x, target.y))) {
+					validMove = true;
+					break;
+				}
 			}
 		}
 		if (!validMove) {
@@ -496,27 +526,68 @@ public class CoinGame {
 		
 		// TODO add check if player actually moved here.
 		// if no movement, send info to client
+		Vec2 previousPosition = new Vec2(player.x, player.y);
 		player.x = resultPosition.x;
 		player.y = resultPosition.y;
 
 		PlayerAction action = playerTargetLocations.get(player);;
 		Vec3 fullTarget = action.targetPosition;
+		
 		if(interpolatedPosition == fullTarget) {
 			playerTargetLocations.remove(player);
 			System.out.println(player.id + " reached destination");
-			// TODO resolve collapse,dig actions
 		}
 		else {
 			fullTarget.z = currentTime();
-			if (action.type == PlayerActionType.COLLAPSE) {
-				TunnelNode node = state.updateTunnelNodePosition(action.nodeid, resultPosition);
-				JSONArray arr = new JSONArray().put(new JSONObject(node));
-				JSONObject obj = new JSONObject()
-						.put("type", MessageType.TUNNEL)
-						.put("tunnelnodes", arr);
-				sendToOne(obj.toString(), idToContextMap.get(player.id));
+		}
+		
+		
+
+		JSONArray nodesArr = new JSONArray();
+		JSONArray segmentsArr = new JSONArray();
+		if (action.type == PlayerActionType.COLLAPSE || action.type == PlayerActionType.DIG) {
+			TunnelNode node = state.updateTunnelNodePosition(action.nodeid, resultPosition);
+			nodesArr.put(new JSONObject(node));
+			double distanceMoved = previousPosition.distanceTo(resultPosition);
+			state.playerGainsExp(player, (int)(distanceMoved/100));
+		}
+		if(interpolatedPosition == fullTarget) {
+			// TODO resolve collapse,dig actions
+			if (action.type == PlayerActionType.DIG) {
+				if (action.targetNodeId != -1 && action.segment != null && action.targetNodeId != action.nodeid) {
+					if (action.segment.node1 == action.nodeid) {
+						action.segment.node1 = action.targetNodeId;
+					}
+					else if (action.segment.node2 == action.nodeid) {
+						action.segment.node2 = action.targetNodeId;
+					}
+					state.updateTunnelSegment(action.segment);
+					state.deleteNode(action.nodeid);
+					nodesArr.put(new JSONObject(state.getTunnelNode(action.nodeid)).put("delete", true));
+					segmentsArr.put(new JSONObject(action.segment));
+				}
+			}
+			else if (action.type == PlayerActionType.COLLAPSE) {
+				segmentsArr.put(new JSONObject(action.segment).put("delete", true));
+				nodesArr.put(new JSONObject(state.getTunnelNode(action.nodeid)).put("delete", true));
+				int remainingNodeId = (action.segment.node1 == action.nodeid) ? action.segment.node2 : action.segment.node1;
+				Set<TunnelSegment> segmentsAttachedToRemainingNode = state.getTunnelSegmentFrom(remainingNodeId, player.id);
+				state.collapseTunnelSegment(action.segment.id, player.id);
+				state.deleteNode(action.nodeid);
+				if (segmentsAttachedToRemainingNode.size() == 1) {
+					nodesArr.put(new JSONObject(state.getTunnelNode(remainingNodeId)).put("delete", true));
+					state.deleteNode(remainingNodeId);
+				}
 			}
 		}
+		if (nodesArr.length() > 0 || segmentsArr.length() > 0) {
+			JSONObject obj = new JSONObject()
+					.put("type", MessageType.TUNNEL)
+					.put("tunnelnodes", nodesArr)
+					.put("tunnelsegments", segmentsArr);
+			sendToOne(obj.toString(), idToContextMap.get(player.id));
+		}
+		
 		changedLocations.add(player.id);
 		state.updatePlayerInfo(player);
 	}
