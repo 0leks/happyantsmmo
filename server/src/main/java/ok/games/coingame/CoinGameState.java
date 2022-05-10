@@ -158,7 +158,7 @@ public class CoinGameState {
 	
 	public void playerUnlocksTunneling(PlayerInfo player) {
 		if (player.tunnelingExp == 0 && player.numcoins >= Constants.UNLOCK_TUNNELING_COST) {
-			player.numcoins -= 1000;
+			player.numcoins -= Constants.UNLOCK_TUNNELING_COST;
 			player.tunnelingExp = 1;
 			updatePlayerInfo(player);
 		}
