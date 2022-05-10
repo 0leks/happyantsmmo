@@ -1,19 +1,20 @@
-package ok.games.coingame;
+package ok.games.coingame.tunnels;
 
 import java.beans.JavaBean;
 
 @JavaBean
-public class Coin {
-
+public class TunnelNode {
+	
 	public int id;
 	public int x;
 	public int y;
-	public int value;
-	public Coin(int id, int x, int y, int value) {
+	public int playerid;
+	
+	public TunnelNode(int id, int x, int y, int playerid) {
 		this.id = id;
 		this.x = x;
 		this.y = y;
-		this.value = value;
+		this.playerid = playerid;
 	}
 	
 	public int getId() {
@@ -34,11 +35,14 @@ public class Coin {
 	public void setY(int y) {
 		this.y = y;
 	}
+
+	public int getPlayerid() {
+		return playerid;
+	}
+
+	public void setPlayerid(int playerid) {
+		this.playerid = playerid;
+	}
 	
-	public int getValue() {
-		return value;
-	}
-	public void setValue() {
-		this.value = value;
-	}
+	
 }

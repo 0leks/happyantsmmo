@@ -1,6 +1,7 @@
 
 let WORLD_SCALE = 10;
 let playerSpeed = 100*WORLD_SCALE;
+let tunnelSize = 49*WORLD_SCALE;
 
 
 let gl = null;
@@ -17,7 +18,8 @@ let currentScale = [1.0, 1.0];
 
 // Vertex information
 
-let squareMesh = {};
+let centeredSquareMesh = {};
+let cornerSquareMesh = {};
 let circleMesh = {};
 
 let PLAYER_SIZE = 600;
@@ -27,6 +29,68 @@ let playerInfos = {};
 let COIN_SIZE = 200;
 let coinPositions = {};
 let coinValues = {};
+
+let tunnelNodes = {};
+let tunnelSegments = {};
+
+let myPosition;
+class TunnelingStatus {
+    tunnelingLevel;
+    startTunnelNodeId;
+    tunnelStartPosition;
+    endTunnelNodeId;
+    tunnelEndPosition;
+}
+
+let myTunnelingStatus = new TunnelingStatus();
+
+class Room {
+    x;
+    y;
+    width;
+    height;
+    color1;
+    color2;
+    constructor(x, y, width, height, color1, color2) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.color1 = color1;
+        this.color2 = color2;
+    }
+}
+
+let cameraTranslate = [0, 0];
+
+let colorA = [0.8, 0.9, 1.0, 1.0];
+let colorB = [0.7, 0.8, 0.9, 1.0];
+let colorC = [0.7, 0.9, 0.7, 1.0];
+let colorD = [0.7, 0.6, 0.5, 1.0];
+let lavenderA = [220/255.0, 208/255.0, 1, 1.0];
+let lavenderB = [190/255.0, 135/255.0, 220/255.0, 1.0];
+let rooms = [
+    new Room(-10000, -10000, 20000, 20000, colorA, colorB),
+    new Room( 25000, -20000, 10000, 10000, colorC, colorD),
+    new Room( 25000, -5000, 10000, 10000, colorC, colorD),
+    new Room( 25000, 10000, 10000, 10000, colorC, colorD),
+    new Room( 45000, -2500, 5000, 5000, lavenderA, lavenderB),
+    new Room( 60000, -2500, 5000, 5000, lavenderB, lavenderA),
+];
+let shopRoom = rooms[5];
+
+// let startTunnelNodeId = getTunnelNodeIdAtPoint(playerPositions[myID]);
+// let endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
+// let tunnelStart = {x: playerPositions[myID][0], y: playerPositions[myID][1]};
+// let tunnelEnd = {x: mousePos[0], y: mousePos[1]};
+// if (startTunnelNodeId) {
+//     tunnelStart = tunnelNodes[startTunnelNodeId];
+// }
+// if (endTunnelNodeId) {
+//     tunnelEnd = tunnelNodes[endTunnelNodeId];
+// }
+
+
 
 // Rendering data shared with the
 // scalers.
@@ -41,6 +105,7 @@ let aVertexPosition;
 let previousTime = 0.0;
 let degreesPerSecond = 90.0;
 
+let loadingMessage = 'Loading... Please wait.';
 
 
 let wsurl = SERVER_WEBSOCKET_PROTOCOL + SERVER_URL + "coin";
@@ -59,6 +124,32 @@ function disconnected() {
     document.location.href = "/";
 }
 
+function exitGame() {
+    document.location.href = "/";
+}
+
+function openAdminPanel() {
+    unhideElement(id("adminPanel"));
+}
+
+function sendTunnelingExp() {
+    let tosend = JSON.stringify({
+        'type': 'TEST',
+        'setTunnelingExp': id("adminInput").value
+    });
+    console.log('sending ' + tosend);
+    ws.send(tosend);
+}
+
+function sendNumCoins() {
+    let tosend = JSON.stringify({
+        'type': 'TEST',
+        'setNumCoins': id("adminInput").value
+    });
+    console.log('sending ' + tosend);
+    ws.send(tosend);
+}
+
 function sendHello() {
     let jsonData = {
         'type': 'HELLO',
@@ -73,9 +164,15 @@ function sendStopGame() {
     let jsonData = {
         'type': 'STOP'
     };
-    let tosend = JSON.stringify(jsonData);
-    console.log('sending ' + tosend);
-    ws.send(tosend);
+    ws.send(JSON.stringify(jsonData));
+}
+
+function homeTeleport() {
+    let jsonData = {
+        'type': 'TELEPORT',
+        'target': 'home'
+    };
+    ws.send(JSON.stringify(jsonData));
 }
 
 function sendMove(x, y) {
@@ -84,30 +181,164 @@ function sendMove(x, y) {
         'x': x,
         'y': y
     }
-    // console.log(data);
     ws.send(JSON.stringify(data));
 }
-
-id("textCanvas").addEventListener('click', logMouseEvent, false);
-function logMouseEvent(e) {
-    // console.log(e);
-    let mypos = getMyPosition(myID);
-    let targetPos = [mypos[0] + (e.x - glCanvas.width / 2) * WORLD_SCALE, mypos[1] - (e.y - glCanvas.height / 2) * WORLD_SCALE];
-    // console.log('mypos:' + mypos);
-    playerTargetPositions[myID] = {
-        'from': new Vector(mypos[0], mypos[1], 0),
-        'to': new Vector(targetPos[0], targetPos[1], 0),
-        'previousTime': previousTime
-    };
-    sendMove(targetPos[0], targetPos[1]);
+function sendNewTunnel(myTunnelingStatus) {
+    let data = {'type': 'TUNNEL'};
+    if (myTunnelingStatus.startTunnelNodeId) {
+        data.nodeid1 = myTunnelingStatus.startTunnelNodeId;
+    }
+    else {
+        data.x1 = myTunnelingStatus.tunnelStartPosition.x;
+        data.y1 = myTunnelingStatus.tunnelStartPosition.y;
+    }
+    if (myTunnelingStatus.endTunnelNodeId) {
+        data.nodeid2 = myTunnelingStatus.endTunnelNodeId;
+    }
+    else {
+        data.x2 = myTunnelingStatus.tunnelEndPosition.x;
+        data.y2 = myTunnelingStatus.tunnelEndPosition.y;
+    }
+    ws.send(JSON.stringify(data));
+    placingTunnel = false;
 }
 
-document.addEventListener('keydown', logKey);
-function logKey(e) {
-    console.log(e);
-    if (e.code == 'Escape') {
-        sendStopGame();
+function sendCollapseTunnel(myTunnelingStatus) {
+    if (myTunnelingStatus.startTunnelNodeId 
+        && myTunnelingStatus.endTunnelNodeId) {
+        let data = {
+            'type': 'TUNNEL',
+            'collapse': {
+                nodeid1: myTunnelingStatus.startTunnelNodeId,
+                nodeid2: myTunnelingStatus.endTunnelNodeId
+            }
+        };
+        ws.send(JSON.stringify(data));
+        collapsingTunnel = false;
     }
+}
+
+id("textCanvas").addEventListener('mousedown', mousePressed, false);
+id("textCanvas").addEventListener('mouseup', mouseReleased, false);
+id("textCanvas").addEventListener('mousemove', mouseMoved, false);
+let mousePos = [0, 0];
+function screenToGamePos(screenPos) {
+    let mypos = getPlayerPosition(myID);
+    let targetPos = [mypos[0] + (screenPos.x - glCanvas.width / 2) * WORLD_SCALE, mypos[1] - (screenPos.y - glCanvas.height / 2) * WORLD_SCALE];
+    return targetPos;
+}
+function mouseMoved(e) {
+    mousePos = screenToGamePos(e);
+}
+function getTunnelNodeIdAtPoint(point) {
+    for (const [id, node] of Object.entries(tunnelNodes)) {
+        if ('delete' in node) {
+            continue;
+        }
+        let distance = Math.sqrt( (node.x - point[0]) ** 2 + (node.y - point[1]) ** 2 );
+        let tunnelSize = 50*WORLD_SCALE / 2;
+        if (distance < tunnelSize) {
+            return node.id;
+        }
+    }
+    return null;
+}
+function getRoomForPoint(point) {
+    for (const room of rooms) {
+        if (room.x <= point.x && point.x <= room.x + room.width
+            && room.y <= point.y && point.y <= room.y + room.height) {
+                return room;
+        }
+    }
+    return null;
+}
+function isInRoom(point) {
+    return getRoomForPoint(point) != null;
+}
+function mousePressed(e) {
+    mouseMoved(e);
+    if (e.button == 2) {
+        placingTunnel = false;
+        collapsingTunnel = false;
+        updatePlaceTunnelButton();
+        return;
+    }
+    if ( !placingTunnel && !collapsingTunnel) {
+        sendMove(mousePos[0], mousePos[1]);
+    }
+}
+function mouseReleased(e) {
+    mouseMoved(e);
+    if (placingTunnel) {
+        sendNewTunnel(myTunnelingStatus);
+    }
+    if (collapsingTunnel) {
+        sendCollapseTunnel(myTunnelingStatus);
+    }
+}
+
+function receiveHelloMessage(data) {
+    console.log(data);
+    myID = data.id;
+
+    if (myID == ADMIN_ID) {
+        unhideElement(id("stopGameButton"));
+        unhideElement(id("adminButton"));
+    }
+}
+
+function receiveCoinMessage(data) {
+    data.coins.forEach(coin => {
+        // console.log(coin);
+        if ('delete' in coin) {
+            delete coinPositions[coin.id];
+            delete coinValues[coin.id];
+        }
+        else {
+            coinPositions[coin.id] = [coin.x, coin.y];
+            if ('value' in coin) {
+                coinValues[coin.id] = coin.value;
+            }
+            else {
+                coinValues[coin.id] = '1';
+            }
+        }
+    });
+}
+
+function receiveTunnels(data) {
+    console.log(data);
+    if ('tunnelnodes' in data) {
+        data.tunnelnodes.forEach(node => {
+            if ('delete' in node) {
+                tunnelNodes[node.id] = node;
+                // TODO need to make sure this doesnt break any segments
+                // delete tunnelNodes[node.id];
+            }
+            else {
+                tunnelNodes[node.id] = node;
+            }
+        });
+    }
+    if ('tunnelsegments' in data) {
+        data.tunnelsegments.forEach(tunnel => {
+            if ('delete' in tunnel) {
+                delete tunnelSegments[tunnel.id];
+            }
+            else {
+                tunnelSegments[tunnel.id] = {
+                    'id': tunnel.id,
+                    'nodeid1': tunnel.node1,
+                    'nodeid2': tunnel.node2
+                };
+            }
+        });
+    }
+}
+
+function myInfoUpdated() {
+    
+    updatePlaceTunnelButton();
 }
 
 var myID;
@@ -120,9 +351,7 @@ function receiveMessage(msg) {
     lastTimestamp = timestamp;
 
     if (data.type == 'HELLO') {
-        console.log(data);
-        myID = data.id;
-        status += myID;
+        receiveHelloMessage(data);
     }
     else if (data.type == 'BYE') {
         console.log(data);
@@ -147,6 +376,12 @@ function receiveMessage(msg) {
         }
         console.log(playerInfos);
     }
+    else if (data.type == 'TUNNEL') {
+        receiveTunnels(data);
+    }
+    else if (data.type == 'COIN') {
+        receiveCoinMessage(data);
+    }
     else if (data.type == 'MOVE') {
         if ('players' in data) {
             status += `${data.players.length} players, `;
@@ -155,20 +390,22 @@ function receiveMessage(msg) {
                 playerPositions[player.id] = [player.x, player.y];
                 updatePlayerInfo(player.id, 'id', player.id);
                 updatePlayerInfo(player.id, 'numcoins', player.numcoins);
-
+                updatePlayerInfo(player.id, 'tunnelingExp', player.tunnelingExp);
+                updatePlayerInfo(player.id, 'hat', player.hat);
 
                 if ('target' in player) {
-                    if (player.id == myID && playerTargetPositions[myID]) {
-                        playerTargetPositions[myID].from = new Vector(player.x, player.y, 0);
-                        playerTargetPositions[myID].previousTime = previousTime;
-                    }
-                    else {
-                        playerTargetPositions[player.id] = {
-                            'from': new Vector(player.x, player.y, 0),
-                            'to': new Vector(player.target.x, player.target.y, 0),
-                            'previousTime': previousTime
-                        };
-                    }
+                    playerTargetPositions[player.id] = {
+                        'from': new Vector(player.x, player.y, 0),
+                        'to': new Vector(player.target.x, player.target.y, 0),
+                        'previousTime': previousTime
+                    };
+                }
+                else {
+                    delete playerTargetPositions[player.id];
+                }
+
+                if (player.id == myID) {
+                    myInfoUpdated();
                 }
             });
 
@@ -176,23 +413,9 @@ function receiveMessage(msg) {
 
         if ('coins' in data) {
             status += `${data.coins.length} coins, `;
-            data.coins.forEach(coin => {
-                // console.log(coin);
-                if ('delete' in coin) {
-                    delete coinPositions[coin.id];
-                    delete coinValues[coin.id];
-                }
-                else {
-                    coinPositions[coin.id] = [coin.x, coin.y];
-                    if ('value' in coin) {
-                        coinValues[coin.id] = coin.value;
-                    }
-                    else {
-                        coinValues[coin.id] = '1';
-                    }
-                }
-            });
+            receiveCoinMessage(data);
         }
+        loadingMessage = '';
     }
     console.log(status);
 }
@@ -206,14 +429,162 @@ function playersDisconnected(ids) {
     });
 }
 
+let UNLOCK_TUNNELING_COST = 500;
+let TUNNEL_COST = 0;
+let placingTunnel = false;
+let collapsingTunnel = false;
+function placeTunnel() {
+    if (playerInfos[myID].numcoins >= TUNNEL_COST) {
+        console.log("Placing tunnel");
+        placingTunnel = true;
+        updatePlaceTunnelButton();
+    }
+}
+
+function collapseTunnel() {
+    collapsingTunnel = true;
+}
+
+function unlockTunneling() {
+    let tosend = JSON.stringify({
+        'type': 'UNLOCK',
+        'skill': 'tunneling'
+    });
+    console.log('sending ' + tosend);
+    ws.send(tosend);
+}
+
+function purchaseCrown() {
+    let tosend = JSON.stringify({
+        'type': 'PURCHASE',
+        'item': 'crown'
+    });
+    console.log('sending ' + tosend);
+    ws.send(tosend);
+}
+
+function openSkillInfo() {
+    unhideElement(id("skillInfo"));
+}
+
+function closeParent(element) {
+    hideElement(element.parentNode);
+}
+
+let experienceTable = [0,1,66,137,212,293,381,474,575,683,799,924,1057,1201,1356,1521,1700,1891,2096,2317,
+    2554,2809,3082,3376,3691,4030,4394,4785,5205,5656,6140,6660,7219,7819,8463,9155,9898,10697,11554,12475,
+    13464,14527,15668,16893,18210,19624,21142,22773,24524,26406,28426,30597,32928,35431,38120,41008,44110,
+    47441,51019,54862,58990,63423,68184,73298,78791,84690,91026,97831,105140,112991,121422,130478,140204,
+    150650,161870,173921,186864,200765,215695,231731,248954,267453,287321,308660,331579,356195,382634,411030,
+    441529,474286,509468,547255,587840,631430,678248,728532,782539,840545,902845,969759,969759+1];
+let maxExperience = 969759;
+function getLevelFromExperience(exp) {
+    if (exp <= 0) {
+        return 0;
+    }
+    else if (exp >= experienceTable[99]) {
+        return 99;
+    }
+    else {
+        return Math.floor(14*Math.log(exp + 885) - 94);
+    }
+}
+function getPercentToNextLevel(exp) {
+    if (exp >= experienceTable[99]) {
+        return {base: experienceTable[99], next: experienceTable[100]}
+    }
+    let currentLevel = getLevelFromExperience(exp);
+    let currentLevelExp = experienceTable[currentLevel];
+    let nextLevelExp = experienceTable[currentLevel + 1];
+    return {base: currentLevelExp, next: nextLevelExp};
+}
+function getMaxSegmentLength(tunnelingLevel) {
+    return 3000 + 50*tunnelingLevel;
+}
+
+function testLevelFromExperience() {
+    let previousLevel = -1;
+    let previousExp = 0;
+    for (let exp = 0; exp < 1000000; exp += 1) {
+        var level = getLevelFromExperience(exp);
+        let roundedLevel = Math.floor(level);
+        
+        if (roundedLevel > previousLevel) {
+            var deltaExp = exp - previousExp;
+            console.log(exp + ' (+' + deltaExp + ') -> ' + level)
+            previousLevel = roundedLevel;
+            previousExp = exp;
+        }
+    }
+}
 
 window.addEventListener("load", startup, false);
 
-function updatePlayerInfo(id, key, value) {
-    if (!(id in playerInfos)) {
-        playerInfos[id] = {};
+let placeTunnelButton = id("tunnelButton");
+let collapseTunnelButton = id("collapseTunnelButton");
+let unlockTunnelingButton = id("unlockTunnelingButton");
+let tunnelingSkillButton = id("skillInfoButton");
+let purchaseCrownButton = id("purchaseCrown");
+function updatePlaceTunnelButton() {
+    if ('tunnelingExp' in playerInfos[myID]) {
+        let currentExp = getPlayerInfo(myID, 'tunnelingExp');
+        myTunnelingStatus.tunnelingLevel = getLevelFromExperience(currentExp);
+        let experienceRange = getPercentToNextLevel(currentExp);
+        id("tunnelingLevel").innerHTML = myTunnelingStatus.tunnelingLevel;
+        id("tunnelingLevelProgress").min = experienceRange.base;
+        id("tunnelingLevelProgress").max = experienceRange.next;
+        id("tunnelingLevelProgress").value = currentExp;
+        tunnelingSkillButton.title = currentExp + '/' + experienceRange.next;
     }
-    playerInfos[id][key] = value;
+
+    if (placingTunnel) {
+        placeTunnelButton.disabled = true;
+        return;
+    }
+    if (playerInfos[myID].tunnelingExp > 0) {
+        placeTunnelButton.disabled = false;
+        unhideElement(placeTunnelButton)
+        
+        unlockTunnelingButton.disabled = true;
+        hideElement(unlockTunnelingButton);
+
+        if (playerInfos[myID].tunnelingExp > 1) {
+            unhideElement(tunnelingSkillButton);
+            tunnelingSkillButton.disabled = false;
+        }
+        unhideElement(tunnelingSkillButton);
+        tunnelingSkillButton.disabled = false;
+
+    }
+    else {
+        placeTunnelButton.disabled = true;
+        
+        if (playerInfos[myID].numcoins >= UNLOCK_TUNNELING_COST) {
+            unhideElement(unlockTunnelingButton);
+            unlockTunnelingButton.disabled = false;
+        }
+    }
+
+    if (playerInfos[myID].hat == 0 && playerInfos[myID].numcoins >= 10000) {
+        purchaseCrownButton.disabled = false;
+    }
+    else {
+        purchaseCrownButton.disabled = true;
+    }
+
+    if (playerInfos[myID].tunnelingExp > 0
+            && Object.keys(tunnelSegments).length > 0) {
+        unhideElement(collapseTunnelButton);
+        collapseTunnelButton.disabled = false;
+    }
+}
+
+function updatePlayerInfo(pid, key, value) {
+    if (!(pid in playerInfos)) {
+        playerInfos[pid] = {};
+    }
+    playerInfos[pid][key] = value;
+
 }
 
 function getPlayerInfo(id, key) {
@@ -230,7 +601,21 @@ function getPlayerInfo(id, key) {
     }
 }
 
-function getMyPosition(playerid) {
+function getPlayerColor(playerid) {
+    if (playerid in playerInfos) {
+        if (playerInfos[playerid][''] < maxExperience) {
+            return [0.1, 0.7, 0.2, 1.0];
+        }
+        else {
+            return [0.0, 0.6, 0.0, 1.0]
+        }
+    }
+    else {
+        return [0.1, 0.7, 0.2, 1.0];
+    }
+}
+
+function getPlayerPosition(playerid) {
     if (playerid in playerPositions) {
         let delta2 = new Vector(0, 0);
         if (playerid in playerTargetPositions) {
@@ -255,6 +640,21 @@ function getMyPosition(playerid) {
     return [0, 0];
 }
 
+function makemesh(mesh, vertices, indices) {
+    mesh.vertexArray = Float32Array.from(vertices);
+    mesh.vertexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, mesh.vertexArray, gl.STATIC_DRAW);
+    mesh.vertexNumComponents = 2;
+    mesh.vertexCount = mesh.vertexArray.length / mesh.vertexNumComponents;
+
+    mesh.indexArray = Uint16Array.from(indices);
+    mesh.indexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.indexArray, gl.STATIC_DRAW);
+    mesh.indexCount = mesh.indexArray.length;
+}
+
 function makeSquareMesh() {
     let size = 1;
     let vertices = [
@@ -266,19 +666,14 @@ function makeSquareMesh() {
         0, 1, 2,
         0, 2, 3
     ];
+    makemesh(centeredSquareMesh, vertices, indices);
 
-    squareMesh.vertexArray = Float32Array.from(vertices);
-    squareMesh.vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, squareMesh.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, squareMesh.vertexArray, gl.STATIC_DRAW);
-    squareMesh.vertexNumComponents = 2;
-    squareMesh.vertexCount = squareMesh.vertexArray.length / squareMesh.vertexNumComponents;
-
-    squareMesh.indexArray = Uint16Array.from(indices);
-    squareMesh.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, squareMesh.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, squareMesh.indexArray, gl.STATIC_DRAW);
-    squareMesh.indexCount = squareMesh.indexArray.length;
+    let verticesCorner = [
+        0, size,
+        size, size,
+        size, 0,
+        0, 0];
+    makemesh(cornerSquareMesh, verticesCorner, indices);
 }
 
 function makeCircleMesh() {
@@ -298,18 +693,7 @@ function makeCircleMesh() {
     }
     indices.push(...[0, 1, numSegments]);
 
-    circleMesh.vertexArray = Float32Array.from(vertices);
-    circleMesh.vertexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, circleMesh.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, circleMesh.vertexArray, gl.STATIC_DRAW);
-    circleMesh.vertexNumComponents = 2;
-    circleMesh.vertexCount = circleMesh.vertexArray.length / circleMesh.vertexNumComponents;
-
-    circleMesh.indexArray = Uint16Array.from(indices);
-    circleMesh.indexBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, circleMesh.indexBuffer);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, circleMesh.indexArray, gl.STATIC_DRAW);
-    circleMesh.indexCount = circleMesh.indexArray.length;
+    makemesh(circleMesh, vertices, indices);
 }
 
 function startup() {
@@ -337,7 +721,7 @@ function startup() {
     let scale = 1;
     currentScale = [2 * scale / glCanvas.width / WORLD_SCALE, 2 * scale / glCanvas.height / WORLD_SCALE];
 
-    makeSquareMesh(0, 0);
+    makeSquareMesh();
     makeCircleMesh();
 
     currentAngle = 0.0;
@@ -387,7 +771,7 @@ function compileShader(id, type) {
     return shader;
 }
 
-function drawMeshes(mesh, positions, scale) {
+function drawMeshes(mesh, positions, scale, colors) {
 
     let uScale = gl.getUniformLocation(shaderProgram, "uScale");
     gl.uniform1f(uScale, scale);
@@ -402,13 +786,86 @@ function drawMeshes(mesh, positions, scale) {
 
     uPositionVector = gl.getUniformLocation(shaderProgram, "uPositionVector");
     for (const [id, pos] of Object.entries(positions)) {
+        if (colors) {
+            gl.uniform4fv(uGlobalColor, colors[id]);
+        }
         gl.uniform2fv(uPositionVector, pos);
         gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
     }
 }
 
-let cameraTranslate = [0, 0];
+function drawRoom(gl, uGlobalColor, room) {
+
+    let center = [room.x + room.width/2, room.y + room.height/2];
+
+    gl.uniform4fv(uGlobalColor, room.color1);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width);
+    
+    gl.uniform4fv(uGlobalColor, room.color2);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width * 16/20);
+
+    gl.uniform4fv(uGlobalColor, room.color1);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width * 8/20);
+
+    gl.uniform4fv(uGlobalColor, room.color2);
+    drawMeshes(centeredSquareMesh, {0: center}, room.width / 20);
+}
+
+let tunnelBackgroundColor = 'rgba(100, 100, 100, 0.5)';
+let tunnelLineColor = 'rgba(255, 255, 255, 1)';
+let tunnelInvalidLineColor = 'rgba(255, 0, 0, 1)';
+let tunnelNodeOutlineColor = 'rgba(255, 255, 255, 0.6)';
+
+function drawTunnelNode(node, invalidSegment) {
+    textContext.fillStyle = tunnelBackgroundColor;
+    textContext.lineWidth = WORLD_SCALE;
+    textContext.beginPath();
+    textContext.arc(node.x, -node.y, tunnelSize/2, 0, 2 * Math.PI);
+
+    if (!('delete' in node)) {
+        if (!invalidSegment) {
+            textContext.fill();
+        }
+        textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelNodeOutlineColor;
+        textContext.stroke();
+        textContext.fillStyle = invalidSegment ? tunnelInvalidLineColor : tunnelLineColor;
+        textContext.beginPath();
+        textContext.arc(node.x, -node.y, tunnelSize/10, 0, 2 * Math.PI);
+        textContext.fill();
+    }
+}
+
+function drawTunnelSegment(node1, node2, invalidSegment) {
+    textContext.strokeStyle = tunnelBackgroundColor;
+    textContext.lineWidth = tunnelSize;
+    // textContext.lineCap = 'square';
+    textContext.beginPath();
+    textContext.moveTo(node1.x, -node1.y);
+    textContext.lineTo(node2.x, -node2.y);
+    if (!invalidSegment) {
+        textContext.stroke();
+    }
+    textContext.strokeStyle = invalidSegment ? tunnelInvalidLineColor : tunnelLineColor;
+    textContext.lineWidth = WORLD_SCALE;
+    textContext.stroke();
+}
+
+function drawTargetX(position) {
+    let x_size = PLAYER_SIZE/2;
+    textContext.strokeStyle = 'rgba(255, 60, 60, 0.5)';
+    textContext.lineWidth = 50;
+
+    textContext.beginPath();
+    textContext.moveTo(position.x + x_size, -position.y + x_size);
+    textContext.lineTo(position.x - x_size, -position.y - x_size);
+
+    textContext.moveTo(position.x + x_size, -position.y - x_size);
+    textContext.lineTo(position.x - x_size, -position.y + x_size);
+    textContext.stroke(); 
+}
+
 function animateScene() {
+
     gl.viewport(0, 0, glCanvas.width, glCanvas.height);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
@@ -427,17 +884,9 @@ function animateScene() {
 
 
     // DRAW BACKGROUND SQUARES
-    gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 2000*WORLD_SCALE);
-    
-    gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 1600*WORLD_SCALE);
-
-    gl.uniform4fv(uGlobalColor, [0.8, 0.9, 1.0, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 800*WORLD_SCALE);
-
-    gl.uniform4fv(uGlobalColor, [0.7, 0.8, 0.9, 1.0]);
-    drawMeshes(squareMesh, {0: [0,0]}, 200*WORLD_SCALE);
+    for( const room of rooms) {
+        drawRoom(gl, uGlobalColor, room);
+    }
 
     let radians = currentAngle * Math.PI / 180.0;
     currentRotation[0] = Math.sin(radians);
@@ -445,18 +894,24 @@ function animateScene() {
     gl.uniform2fv(uRotationVector, currentRotation);
 
     // DRAW PLAYERS
-    gl.uniform4fv(uGlobalColor, [0.1, 0.7, 0.2, 1.0]);
-    let pos = [];
+
+    // TODO precompute each player's color only when their level gets updated 
+    let pos = {};
+    let colors = {};
     for (playerid in playerPositions) {
-        pos.push(getMyPosition(playerid));
+        pos[playerid] = getPlayerPosition(playerid);
+        colors[playerid] = getPlayerColor(playerid);
     }
-    drawMeshes(squareMesh, pos, PLAYER_SIZE);
+    drawMeshes(centeredSquareMesh, pos, PLAYER_SIZE, colors);
 
     // DRAW COINS
     gl.uniform4fv(uGlobalColor, [.9, 0.6, 0.2, 1.0]);
     drawMeshes(circleMesh, coinPositions, COIN_SIZE);
     
     gl.uniform2fv(uRotationVector, [1, 0]);
+
+    
+
 
     textContext.clearRect(0, 0, textContext.canvas.width, textContext.canvas.height);
     textContext.strokeRect(0, 0, textContext.canvas.width, textContext.canvas.height);
@@ -476,24 +931,121 @@ function animateScene() {
             // textContext.fillText('id' + playerinfo.id, playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText(getPlayerInfo(id, 'handle'), playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText('' + getPlayerInfo(id, 'numcoins'), playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
+            // textContext.fillText('tunnel: ' + getPlayerInfo(id, 'tunnelingExp'), playerPositions[id][0], -playerPositions[id][1] + 40*WORLD_SCALE);
         }
     }
+    textContext.fillText(loadingMessage, 0, 0);
+    textContext.fillText("Ye Olde Shoppe", 62500, 0);
+    
+    myPosition = getPlayerPosition(myID);
+    if (getPlayerInfo(myID, 'hat') == 1) {
+        textContext.fillStyle = '#FFFFFF';
+        textContext.fillText('hat', myPosition[0], -myPosition[1] - 35*WORLD_SCALE);
+        textContext.fillStyle = '#000000';
+        textContext.fillText('hat', myPosition[0], -myPosition[1] - 34*WORLD_SCALE);
+    }
+    
+    for (const [id, segment] of Object.entries(tunnelSegments)) {
+        drawTunnelSegment(tunnelNodes[segment.nodeid1], tunnelNodes[segment.nodeid2]);
+    };
+
+    for (const [id, node] of Object.entries(tunnelNodes)) {
+        drawTunnelNode(node);
+    }
+
+    if (placingTunnel || collapsingTunnel) {
+        myTunnelingStatus.startTunnelNodeId = getTunnelNodeIdAtPoint(myPosition);
+        if (myTunnelingStatus.startTunnelNodeId) {
+            myTunnelingStatus.tunnelStartPosition = tunnelNodes[myTunnelingStatus.startTunnelNodeId];
+        }
+        else {
+            myTunnelingStatus.tunnelStartPosition = {x: playerPositions[myID][0], y: playerPositions[myID][1]};
+        }
+
+        myTunnelingStatus.endTunnelNodeId = getTunnelNodeIdAtPoint(mousePos);
+        if (myTunnelingStatus.endTunnelNodeId) {
+            myTunnelingStatus.tunnelEndPosition = tunnelNodes[myTunnelingStatus.endTunnelNodeId];
+        }
+        else {
+            myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
+        }
+    }
+        
+    if (placingTunnel) {
+        let startVec = new Vector(myTunnelingStatus.tunnelStartPosition.x, 
+                                myTunnelingStatus.tunnelStartPosition.y, 
+                                0);
+        let endVec = new Vector(myTunnelingStatus.tunnelEndPosition.x, 
+                                myTunnelingStatus.tunnelEndPosition.y, 
+                                0);
+        let deltaVec = endVec.subtract(startVec);
+        let maxSegmentLength = getMaxSegmentLength(myTunnelingStatus.tunnelingLevel) - 1;
+        if (myTunnelingStatus.endTunnelNodeId && deltaVec.length() > maxSegmentLength) {
+            myTunnelingStatus.endTunnelNodeId = null;
+            myTunnelingStatus.tunnelEndPosition = {x: mousePos[0], y: mousePos[1]};
+            endVec.x = myTunnelingStatus.tunnelEndPosition.x;
+            endVec.y = myTunnelingStatus.tunnelEndPosition.y;
+            deltaVec = endVec.subtract(startVec);
+        }
+        if (deltaVec.length() > maxSegmentLength) {
+            let croppedVec = deltaVec.multiply(maxSegmentLength / deltaVec.length());
+            endVec = startVec.add(croppedVec);
+            myTunnelingStatus.tunnelEndPosition = endVec;
+            deltaVec = endVec.subtract(startVec);
+        }
+
+        let invalidSegment = false;
+        if (!myTunnelingStatus.startTunnelNodeId 
+                && !isInRoom(myTunnelingStatus.tunnelStartPosition)) {
+            invalidSegment = true;
+        }
+
+        drawTunnelSegment(startVec, endVec, invalidSegment);
+        if (!myTunnelingStatus.startTunnelNodeId) {
+            drawTunnelNode(startVec, invalidSegment);
+        }
+        if (!myTunnelingStatus.endTunnelNodeId) {
+            drawTunnelNode(endVec);
+        }
+
+        let midPoint = startVec.add(endVec).multiply(0.5);
+        let cost = 10 + Math.floor(deltaVec.length() / WORLD_SCALE / 5);
+        let startVecRoom = getRoomForPoint(startVec);
+        if (startVecRoom == null || startVecRoom != getRoomForPoint(endVec)) {
+            cost += 5 * Object.keys(tunnelSegments).length;
+        }
+        textContext.fillText('$' + cost, midPoint.x, -midPoint.y);
+    }
+
+    if (collapsingTunnel) {
+        if (myTunnelingStatus.startTunnelNodeId 
+            && myTunnelingStatus.endTunnelNodeId) {
+            drawTunnelSegment(myTunnelingStatus.tunnelStartPosition, 
+                                myTunnelingStatus.tunnelEndPosition, 
+                                true);
+            drawTunnelNode(myTunnelingStatus.tunnelStartPosition, true);
+            drawTunnelNode(myTunnelingStatus.tunnelEndPosition, true);
+        }
+        else {
+            drawTunnelSegment(myTunnelingStatus.tunnelStartPosition, 
+                                myTunnelingStatus.tunnelEndPosition, 
+                                true);
+            drawTunnelNode(myTunnelingStatus.tunnelEndPosition, false);
+        }
+    }
+
+    if (myID in playerTargetPositions) {
+        drawTargetX(playerTargetPositions[myID].to);
+    }
+
     textContext.restore();
 
 
-
-
     window.requestAnimationFrame(function (currentTime) {
-        //   let deltaAngle = ((currentTime - previousTime) / 1000.0) * degreesPerSecond;
-        // currentAngle = (currentAngle + deltaAngle) % 360;
-
-        
         let deltaTime = currentTime - previousTime;
         previousTime = currentTime;
 
-
-
-        let mypos = getMyPosition(myID);
+        let mypos = getPlayerPosition(myID);
         let posVec = new Vector(mypos[0], mypos[1], 0);
         let cameraVec = new Vector(cameraTranslate[0], cameraTranslate[1], 0);
         let adjustmentVec = posVec.subtract(cameraVec);
@@ -507,6 +1059,16 @@ function animateScene() {
             let ratio = distance/maxDistance;
             let newCameraVec = adjustmentVec.unit().multiply(maxDistance*Math.sqrt(ratio));
             cameraTranslate = [cameraTranslate[0] + newCameraVec.x, cameraTranslate[1] + newCameraVec.y];
+        }
+
+        if (
+            getPlayerInfo(myID, 'hat') != 1 &&
+            mypos[0] > shopRoom.x && mypos[0] < shopRoom.x + shopRoom.width
+            && mypos[1] > shopRoom.y && mypos[1] < shopRoom.y + shopRoom.height) {
+            unhideElement(purchaseCrownButton);
+        }
+        else {
+            hideElement(purchaseCrownButton);
         }
         animateScene();
     });
