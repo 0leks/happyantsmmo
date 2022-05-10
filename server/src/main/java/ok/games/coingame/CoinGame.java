@@ -328,9 +328,9 @@ public class CoinGame {
 		}
 		
 		// both nodes in same room == cheaper
-		int cost = 50 + (int)(Math.sqrt(proposedLength / 10));
+		int cost = 10 + (int)(proposedLength / 50);
 		if (node1Room == null || !node1Room.contains(new Point(node2Pos.x, node2Pos.y))) {
-			cost += 10 * state.getPlayerTunnels(player.id).size();
+			cost += 5 * state.getPlayerTunnels(player.id).size();
 		}
 		
 		if (player.numcoins < cost) {
@@ -393,14 +393,27 @@ public class CoinGame {
 		System.out.println(obj.toString());
 		if (obj.has("setTunnelingExp")) {
 			try {
-				int newTunnelingExp = Integer.parseInt(obj.getString("setTunnelingExp"));
-				player.tunnelingExp = newTunnelingExp;
+				player.tunnelingExp = Integer.parseInt(obj.getString("setTunnelingExp"));
 				state.updatePlayerInfo(player);
 				changedLocations.add(player.id);
 			}
 			catch (NumberFormatException e) {
-				
 			}
+		}
+		else if(obj.has("setNumCoins")) {
+			try {
+				player.numcoins = Integer.parseInt(obj.getString("setNumCoins"));
+				state.updatePlayerInfo(player);
+				changedLocations.add(player.id);
+			}
+			catch (NumberFormatException e) {
+			}
+		}
+	}
+	private void receivePurchaseMessage(PlayerInfo player, JSONObject obj) {
+		System.out.println(obj.toString());
+		if (obj.has("item")) {
+			state.playerPurchasesItem(player, obj.getString("item"));
 		}
 	}
 	
@@ -444,18 +457,26 @@ public class CoinGame {
 			receiveTestMessage(player, obj);
 			break;
 			
+		case PURCHASE:
+			receivePurchaseMessage(player, obj);
+			break;
+			
 		default:
 			System.err.println("UNKNOWN MESSAGE TYPE RECEIVED: " + type);
 		}
 	}
 	
 	private java.util.List<Rectangle> mapRooms = new ArrayList<>();
+	private Rectangle shopRoom = new Rectangle( 60000, -2500, 5000, 5000);
 	// TODO cleanup later
 	{ 
 		mapRooms.add(new Rectangle(-10000, -10000, 20000, 20000));
 		mapRooms.add(new Rectangle( 25000, -20000, 10000, 10000));
 		mapRooms.add(new Rectangle( 25000, -5000, 10000, 10000));
 		mapRooms.add(new Rectangle( 25000, 10000, 10000, 10000));
+		mapRooms.add(new Rectangle( 45000, -2500, 5000, 5000));
+
+		mapRooms.add(shopRoom);
 
 //		mapRooms.add(new Rectangle(-25000, -26000, 40000, 1000));
 //		mapRooms.add(new Rectangle(-25000, +25000, 40000, 1000));
@@ -681,17 +702,26 @@ public class CoinGame {
 		Coin coin = state.addNewCoin(room0pos.x, room0pos.y, room0value);
 		newCoins.add(coin);
 		
-		if (Math.random() < 0.4) {
-			Rectangle room1 = mapRooms.get(1 + (int)(Math.random() * (mapRooms.size() - 1)));
+		double extra = Math.random();
+		if (extra < 0.4) {
+			// add coins to first 3 rooms outside of start
+			Rectangle room1 = mapRooms.get(1 + (int)(Math.random() * 3));
 			Vec2 room1pos = getPosForCoinInRoom(room1, 1.2);
 			int room1value = getValueForCoin(5, 20);
 
 			if (Math.random() < 0.001) {
-				room1pos = getPosForCoinInRoom(room1, 1.3);
+				room1pos = getPosForCoinInRoom(room1, 1.4);
 				room1value = getValueForCoin(80, 100);
 			}
 			Coin coin1 = state.addNewCoin(room1pos.x, room1pos.y, room1value);
 			newCoins.add(coin1);
+		}
+		else if (extra < 0.44) {
+			// will add more rooms in the future
+			Rectangle room1 = mapRooms.get(4 + (int)(Math.random() * 1));
+			Vec2 room1pos = getPosForCoinInRoom(room1, 1.2);
+			int room1value = getValueForCoin(20, 100);
+			newCoins.add(state.addNewCoin(room1pos.x, room1pos.y, room1value));
 		}
 	}
 	

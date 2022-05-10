@@ -163,6 +163,13 @@ public class CoinGameState {
 			updatePlayerInfo(player);
 		}
 	}
+	public void playerPurchasesItem(PlayerInfo player, String item) {
+		if (player.numcoins >= Constants.CROWN_COST) {
+			player.numcoins -= Constants.CROWN_COST;
+			player.hat = 1;
+			updatePlayerInfo(player);
+		}
+	}
 	
 	public void updateTunnelSegment(TunnelSegment segment) {
 		newTunnelSegments.add(segment);

@@ -25,6 +25,16 @@ body {
     }
 }
 
+#adminPanel .modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+    
+    button {
+        padding: 0.5em;
+    }
+}
+
 .modal {
     display: grid;
     grid-template-columns: auto 1em;
@@ -57,7 +67,7 @@ body {
         background-color: rgb(34, 34, 34);
         background-color: rgba(34, 34, 34, 0.8);
 
-        h2 {
+        h2,h3 {
             margin-bottom: 0.5em;
         }
     }

@@ -10,13 +10,15 @@ public class PlayerInfo {
 	public int x;
 	public int y;
 	public int tunnelingExp;
+	public int hat;
 
-	public PlayerInfo(int id, int numcoins, int x, int y, int tunnelingExp) {
+	public PlayerInfo(int id, int numcoins, int x, int y, int tunnelingExp, int hat) {
 		this.id = id;
 		this.numcoins = numcoins;
 		this.x = x;
 		this.y = y;
 		this.tunnelingExp = tunnelingExp;
+		this.hat = hat;
 	}
 
 	public int getId() {
@@ -51,6 +53,13 @@ public class PlayerInfo {
 	}
 	public void setTunnelingExp(int tunnelingExp) {
 		this.tunnelingExp = tunnelingExp;
+	}
+	
+	public int getHat() {
+		return hat;
+	}
+	public void setHat(int hat) {
+		this.hat = hat;
 	}
 	
 	public int _getTunnelingLevel() {

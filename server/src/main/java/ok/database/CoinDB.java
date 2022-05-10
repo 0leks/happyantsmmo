@@ -21,7 +21,8 @@ public class CoinDB {
 			+ "	numcoins integer NOT NULL DEFAULT 0,\n"
 			+ "	x integer NOT NULL DEFAULT 0,\n"
 			+ "	y integer NOT NULL DEFAULT 0,\n"
-			+ " tunnelingLevel integer NOT NULL DEFAULT 0"
+			+ " tunnelingLevel integer NOT NULL DEFAULT 0\n"
+			+ " hat integer NOT NULL DEFAULT 0\n"
 			+ ");";
 	
 	private static final String createCoinsTable = 
@@ -31,16 +32,6 @@ public class CoinDB {
 			+ "	y integer NOT NULL DEFAULT 0,\n"
 			+ " value integer NOT NULL DEFAULT 1\n"
 			+ ");";
-
-//	private static final String createTunnelsTable = 
-//			"CREATE TABLE IF NOT EXISTS " + TUNNELS_TABLE + " (\n"
-//			+ "	id SERIAL PRIMARY KEY,\n"
-//			+ "	x1 integer NOT NULL DEFAULT 0,\n"
-//			+ "	y1 integer NOT NULL DEFAULT 0,\n"
-//			+ "	x2 integer NOT NULL DEFAULT 0,\n"
-//			+ "	y2 integer NOT NULL DEFAULT 0,\n"
-//			+ " playerid integer NOT NULL\n"
-//			+ ");";
 	
 	private static final String createTunnelNodesTable = 
 			"CREATE TABLE IF NOT EXISTS " + TUNNEL_NODES_TABLE + "(\n"
@@ -62,6 +53,8 @@ public class CoinDB {
 			"ALTER TABLE " + COINS_TABLE + " ADD value integer NOT NULL DEFAULT 1;";
 	private static final String createPlayersTable_addLevelCol = 
 			"ALTER TABLE " + PLAYERS_TABLE + " ADD tunnelingLevel integer NOT NULL DEFAULT 0;";
+	private static final String createPlayersTable_addHatCol = 
+			"ALTER TABLE " + PLAYERS_TABLE + " ADD hat integer NOT NULL DEFAULT 0;";
 	
 	private static final String insertPlayerInfo = 
 			"INSERT INTO " + PLAYERS_TABLE + "(id) VALUES(?)";
@@ -135,6 +128,14 @@ public class CoinDB {
 				e.printStackTrace();
 			}
 		}
+		
+		if (!DBUtil.doesTableHaveColumn(PLAYERS_TABLE, "hat")) {
+			try (Statement stmt = connection.createStatement()) {
+				stmt.execute(createPlayersTable_addHatCol);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
 
 		if (!DBUtil.doesTableExist(COINS_TABLE)) {
 			try (Statement stmt = connection.createStatement()) {
@@ -203,7 +204,8 @@ public class CoinDB {
 								rs.getInt("numcoins"),
 								rs.getInt("x"),
 								rs.getInt("y"),
-								rs.getInt("tunnelingLevel"));
+								rs.getInt("tunnelingLevel"),
+								rs.getInt("hat"));
 				}
 			}
 		} catch (SQLException e) {
@@ -224,7 +226,7 @@ public class CoinDB {
 	}
 
 	private static final String updatePlayerInfo = 
-			"UPDATE " + PLAYERS_TABLE + " SET x=?, y=?, numcoins=?, tunnelingLevel=? WHERE id=?";
+			"UPDATE " + PLAYERS_TABLE + " SET x=?, y=?, numcoins=?, tunnelingLevel=?, hat=? WHERE id=?";
 	private PreparedStatement updatePlayerInfoStatement;
 	public void updatePlayerInfo(PlayerInfo info) {
 		try {
@@ -232,7 +234,8 @@ public class CoinDB {
 			updatePlayerInfoStatement.setInt(2, info.y);
 			updatePlayerInfoStatement.setInt(3, info.numcoins);
 			updatePlayerInfoStatement.setInt(4, info.tunnelingExp);
-			updatePlayerInfoStatement.setInt(5, info.id);
+			updatePlayerInfoStatement.setInt(5, info.hat);
+			updatePlayerInfoStatement.setInt(6, info.id);
 			updatePlayerInfoStatement.executeUpdate();
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
