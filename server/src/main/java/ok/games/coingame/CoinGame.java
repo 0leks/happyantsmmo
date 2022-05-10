@@ -1,8 +1,12 @@
 package ok.games.coingame;
 
+import java.awt.*;
 import java.io.IOException;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.*;
+
+import javax.swing.JOptionPane;
 
 import org.json.*;
 import org.springframework.http.*;
@@ -12,6 +16,7 @@ import org.springframework.web.socket.WebSocketSession;
 import ok.accounts.*;
 import ok.connections.*;
 import ok.connections.sessions.*;
+import ok.games.coingame.tunnels.*;
 import ok.games.math.*;
 //import io.javalin.websocket.*;
 import ok.util.Util;
@@ -23,6 +28,7 @@ public class CoinGame {
 	private static final int TICK_TIME = 300;
 	private static final int UPDATE_TIME = 2000;
 	private static final int PLAYER_SPEED = 1000;
+	private static final int TUNNEL_SIZE = 250;
 	
 	/**
 	 * This is the main map that gets iterated to send updates to all contexts
@@ -31,7 +37,7 @@ public class CoinGame {
 
 	private Map<Integer, WebSocketSession> idToContextMap = new HashMap<>();
 	private Map<WebSocketSession, AccountInfo> contextToAccountInfoMap = new HashMap<>();
-	private Map<PlayerInfo, Vec3> playerTargetLocations = new HashMap<>();
+	private Map<PlayerInfo, PlayerAction> playerTargetLocations = new HashMap<>();
 
 	private ConcurrentLinkedQueue<AccountInfo> newConnectionNotification = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<AccountInfo> endedConnectionNotification = new ConcurrentLinkedQueue<>();
@@ -40,7 +46,7 @@ public class CoinGame {
 	 * if null, need to share all coins
 	 * if has a hashmap, then cointains list of coin ids that have been shared
 	 */
-	private Map<WebSocketSession, Set<Integer>> contextToCoinsShared = new HashMap<>();	
+	private ConcurrentLinkedQueue<Coin> newCoins = new ConcurrentLinkedQueue<>();
 	private ConcurrentLinkedQueue<Coin> deletedCoins = new ConcurrentLinkedQueue<>();
 
 	
@@ -71,27 +77,17 @@ public class CoinGame {
 		databaseSaver.start();
 	}
 	
-	private void stopGame(WebSocketSession ctx) {
-		PlayerInfo info = contextToPlayerInfoMap.get(ctx);
-		System.out.println(info + " tried to stop game");
+	private void stopGame(PlayerInfo player) {
+		System.out.println(player + " tried to stop game");
+		
 		// only admin account can stop the game
-		if (info == null || info.id != 1) {
+		if (player.id != 1) {
 			return;
 		}
 		
-		JSONObject message = new JSONObject();
-		message.put("type", MessageType.STOP);
-		message.put("message", "Server is closing for maintenance in 5 seconds");
-		String tosend = message.toString();
-		for (WebSocketSession playerContext : contextToPlayerInfoMap.keySet()) {
-			try {
-				playerContext.sendMessage(new TextMessage(tosend));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-		}
+		sendToAll("Server is closing for maintenance in 20 seconds");
 		try {
-			Thread.sleep(5000);
+			Thread.sleep(20000);
 		} catch (InterruptedException e1) {
 			e1.printStackTrace();
 		}
@@ -147,7 +143,6 @@ public class CoinGame {
 			}
 		}
 		
-		contextToCoinsShared.put(ctx, new HashSet<>());
 		idToContextMap.put(info.id, ctx);
 		contextToAccountInfoMap.put(ctx, info);
 		contextToPlayerInfoMap.put(ctx, playerInfo);
@@ -156,14 +151,44 @@ public class CoinGame {
 		System.err.println(info.handle + " joined game");
 		
 		JSONObject obj = new JSONObject(playerInfo);
+		System.out.println(obj.toString());
 		obj.put("type", MessageType.HELLO);
-		try {
-			ctx.sendMessage(new TextMessage(obj.toString()));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		sendToOne(obj.toString(), ctx);
+		shareAllCoinsWith(ctx);
 		newConnectionNotification.add(info);
 		shareAllPlayerMappingWith(ctx);
+		shareAllTunnelsOf(ctx, playerInfo);
+	}
+	
+	private void shareAllTunnelsOf(WebSocketSession ctx, PlayerInfo info) {
+		Set<TunnelNode> tunnelNodes = new HashSet<>();
+		List<TunnelSegment> tunnels = state.getTunnelsOfPlayer(info.id, tunnelNodes);
+		JSONArray nodeArr = new JSONArray();
+		for(TunnelNode node : tunnelNodes) {
+			nodeArr.put(new JSONObject(node));
+		}
+		JSONArray segmentArr = new JSONArray();
+		for(TunnelSegment tunnel : tunnels) {
+			segmentArr.put(new JSONObject(tunnel));
+		}
+		JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
+		if (nodeArr.length() > 0 || segmentArr.length() > 0) {
+			obj.put("tunnelnodes", nodeArr);
+			obj.put("tunnelsegments", segmentArr);
+			sendToOne(obj.toString(), ctx);
+		}
+	}
+	
+	private void shareAllCoinsWith(WebSocketSession ctx) {
+		JSONObject obj = new JSONObject().put("type", MessageType.COIN);
+		JSONArray coinsArray = new JSONArray();
+		for(Coin coin : state.getCoins()) {
+			coinsArray.put(new JSONObject(coin));
+		}
+		if (coinsArray.length() > 0) {
+			obj.put("coins", coinsArray);
+			sendToOne(obj.toString(), ctx);
+		}
 	}
 	
 	public void closedConnection(WebSocketSession ctx) {
@@ -176,38 +201,356 @@ public class CoinGame {
 		}
 	}
 	
-	public void receiveMove(WebSocketSession ctx, int x, int y) {
-		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
-		if (player == null) {
-			return;
-		}
+	private void receiveMove(PlayerInfo player, int x, int y) {
 		movePlayer(player);
-		playerTargetLocations.put(player, new Vec3(x, y, currentTime()));
+		playerTargetLocations.put(player, PlayerAction.move(new Vec3(x, y, currentTime())));
 		changedLocations.add(player.id);
 		sendLocations(false);
 	}
 	
+	private void receiveTunnelCollapse(PlayerInfo player, JSONObject collapseObj) {
+		int nodeid1 = collapseObj.getInt("nodeid1");
+		int nodeid2 = collapseObj.getInt("nodeid2");
+
+		if (!state.doesTunnelNodeExist(nodeid1) || !state.doesTunnelNodeExist(nodeid2)) {
+			System.err.println("ERROR COLLAPSING TUNNEL: node1 or node2 doesnt exist");
+			return;
+		}
+		
+		Vec3 playerPos = getInterpolatedPlayerPosition(player);
+		Vec2 nodePos = state.getTunnelNodePosition(nodeid1);
+		double distance = nodePos.distanceTo(playerPos.xy());
+		if (distance > TUNNEL_SIZE) {
+			System.err.println("ERROR COLLAPSING TUNNEL: player too far from node1");
+			return;
+		}
+		
+		Set<TunnelSegment> affectedSegments = state.getTunnelSegmentFrom(nodeid1, player.id);
+		TunnelSegment collapsingSegment = null;
+		for (TunnelSegment segment : affectedSegments) {
+			if (segment.node1 == nodeid2 || segment.node2 == nodeid2) {
+				collapsingSegment = segment;
+			}
+		}
+		if (collapsingSegment == null) {
+			System.err.println("ERROR COLLAPSING TUNNEL: no segment between specified nodes");
+			return;
+		}
+		
+		if (affectedSegments.size() > 1) {
+			// need to make copy of node and update collapsing segment to use it
+			TunnelNode copyNode = state.createNewTunnelNode(nodePos.x, nodePos.y, player.id);
+			if (collapsingSegment.node1 == nodeid1) {
+				collapsingSegment.node1 = copyNode.id;
+			}
+			else {
+				collapsingSegment.node2 = copyNode.id;
+			}
+			nodeid1 = copyNode.id;
+			state.updateTunnelSegment(collapsingSegment);
+			JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL)
+					.put("tunnelnodes", new JSONArray().put(new JSONObject(copyNode)))
+					.put("tunnelsegments", new JSONArray().put(new JSONObject(collapsingSegment)));
+			sendToOne(obj.toString(), idToContextMap.get(player.id));
+		}
+		
+		Vec2 targetPos = state.getTunnelNodePosition(nodeid2);
+		movePlayer(player);
+		playerTargetLocations.put(player, PlayerAction.collapse(
+				new Vec3(targetPos.x, targetPos.y, currentTime()), 
+				nodeid1,
+				collapsingSegment));
+		changedLocations.add(player.id);
+		sendLocations(false);
+	}
+	
+	private Rectangle getRoomForPoint(int x, int y) {
+		Point p = new Point(x, y);
+		for (Rectangle room : mapRooms) {
+			if (room.contains(p)) {
+				return room;
+			}
+		}
+		return null;
+	}
+	
+	private void receiveTunnel(PlayerInfo player, JSONObject message) {
+		if (message.has("collapse")) {
+			receiveTunnelCollapse(player, message.getJSONObject("collapse"));
+			return;
+		}
+		Rectangle node1Room = null;
+		int nodeid1 = -1;
+		if (message.has("nodeid1")) {
+			nodeid1 = message.getInt("nodeid1");
+		}
+		else {
+			int x = message.getInt("x1");
+			int y = message.getInt("y1");
+			node1Room = getRoomForPoint(x, y);
+			if (node1Room == null) {
+				System.out.println("ERROR MAKING TUNNEL: node1 outside of room");
+				return;
+			}
+			TunnelNode node = state.createNewTunnelNode(x, y, player.id);
+			nodeid1 = node.id;
+		}
+		if (!state.doesTunnelNodeExist(nodeid1)) {
+			System.err.println("ERROR MAKING TUNNEL");
+		}
+		Vec2 node1Pos = state.getTunnelNodePosition(nodeid1);
+		if (node1Room == null) {
+			node1Room = getRoomForPoint(node1Pos.x, node1Pos.y);
+		}
+		
+		Vec2 node2Pos = null;
+		if (message.has("nodeid2") && state.doesTunnelNodeExist(message.getInt("nodeid2"))) {
+			node2Pos = state.getTunnelNodePosition(message.getInt("nodeid2"));
+		}
+		else {
+			node2Pos = new Vec2(message.getInt("x2"), message.getInt("y2"));
+		}
+
+		int nodeid2 = -1;
+		TunnelNode createdNode2 = null;
+		double proposedLength = node1Pos.distanceTo(node2Pos);
+		int maxLength = Constants.getMaxSegmentLength(player._getTunnelingLevel());
+		
+		if (proposedLength > maxLength) {
+			System.err.println("ERROR DIGGING TUNNEL: too long " + proposedLength);
+			return;
+//			Vec2 tunnelVector = node2Pos.minus(node1Pos);
+//			Vec2 croppedVector = tunnelVector.multiply(maxLength / tunnelVector.magnitude());
+//			node2Pos = node1Pos.add(croppedVector);
+//			
+//			TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
+//			nodeid2 = node.id;
+		}
+		
+		// both nodes in same room == cheaper
+		int cost = 10 + (int)(proposedLength / 50);
+		if (node1Room == null || !node1Room.contains(new Point(node2Pos.x, node2Pos.y))) {
+			cost += 5 * state.getPlayerTunnels(player.id).size();
+		}
+		
+		if (player.numcoins < cost) {
+			System.out.println("ERROR MAKING TUNNEL: not enough funds");
+			return;
+		}
+		
+		createdNode2 = state.createNewTunnelNode(node1Pos.x, node1Pos.y, player.id);
+		if (message.has("nodeid2")) {
+			nodeid2 = message.getInt("nodeid2");
+		}
+		else {
+			nodeid2 = createdNode2.id;
+		}
+		if (!state.doesTunnelNodeExist(nodeid2)) {
+			System.err.println("ERROR MAKING TUNNEL");
+			return;
+		}
+		
+		player.numcoins -= cost;
+		state.updatePlayerInfo(player);
+		
+		TunnelSegment segment = state.createNewTunnelSegment(nodeid1, createdNode2.id, player.id);
+		
+		JSONArray nodeArr = new JSONArray()
+				.put(new JSONObject(state.getTunnelNode(nodeid1)))
+				.put(new JSONObject(createdNode2));
+		JSONObject obj = new JSONObject().put("type", MessageType.TUNNEL);
+		obj.put("tunnelnodes", nodeArr);
+		obj.put("tunnelsegments", new JSONArray().put(new JSONObject(segment)));
+		sendToOne(obj.toString(), idToContextMap.get(player.id));
+		
+		movePlayer(player);
+		playerTargetLocations.put(player, PlayerAction.dig(
+				new Vec3(node2Pos.x, node2Pos.y, currentTime()), 
+				createdNode2.id,
+				nodeid2,
+				segment));
+		changedLocations.add(player.id);
+		sendLocations(false);
+	}
+	
+	private void unlockSkill(PlayerInfo player, String skill) {
+		if (skill.equals("tunneling")) {
+			state.playerUnlocksTunneling(player);
+		}
+	}
+	
+	private void teleport(PlayerInfo player, String target) {
+		if (target.equals("home")) {
+			playerTargetLocations.remove(player);
+			player.x = 0;
+			player.y = 0;
+			changedLocations.add(player.id);
+			sendLocations(false);
+		}
+	}
+	
+	private void receiveTestMessage(PlayerInfo player, JSONObject obj) {
+		System.out.println(obj.toString());
+		if (obj.has("setTunnelingExp")) {
+			try {
+				player.tunnelingExp = Integer.parseInt(obj.getString("setTunnelingExp"));
+				state.updatePlayerInfo(player);
+				changedLocations.add(player.id);
+			}
+			catch (NumberFormatException e) {
+			}
+		}
+		else if(obj.has("setNumCoins")) {
+			try {
+				player.numcoins = Integer.parseInt(obj.getString("setNumCoins"));
+				state.updatePlayerInfo(player);
+				changedLocations.add(player.id);
+			}
+			catch (NumberFormatException e) {
+			}
+		}
+	}
+	private void receivePurchaseMessage(PlayerInfo player, JSONObject obj) {
+		System.out.println(obj.toString());
+		if (obj.has("item")) {
+			state.playerPurchasesItem(player, obj.getString("item"));
+		}
+	}
+	
 	public void receiveMessage(WebSocketSession ctx, TextMessage textMessage) {
 		String message = textMessage.getPayload();
-		JSONObject obj = new JSONObject(message);
+		JSONObject obj = new JSONObject(message); 
 		MessageType type = MessageType.valueOf(obj.getString("type"));
 		
-		switch(type) {
-		case HELLO:
+		if (type == MessageType.HELLO) {
 			newConnection(ctx, obj.getString("session"));
-			break;
-			
+			return;
+		}
+		
+		PlayerInfo player = contextToPlayerInfoMap.get(ctx);
+		if (player == null) {
+			return;
+		}
+		
+		switch(type) {
 		case MOVE:
-			receiveMove(ctx, obj.getInt("x"), obj.getInt("y"));
+			receiveMove(player, obj.getInt("x"), obj.getInt("y"));
 			break;
 
 		case STOP:
-			stopGame(ctx);
+			stopGame(player);
+			break;
+		
+		case TUNNEL:
+			receiveTunnel(player, obj);
+			break;
+		
+		case UNLOCK:
+			unlockSkill(player, obj.getString("skill"));
+			break;
+			
+		case TELEPORT:
+			teleport(player, obj.getString("target"));
+			break;
+			
+		case TEST:
+			receiveTestMessage(player, obj);
+			break;
+			
+		case PURCHASE:
+			receivePurchaseMessage(player, obj);
 			break;
 			
 		default:
-			System.err.println("UNKNOWN MESSAGE TYPE RECEIVED");
+			System.err.println("UNKNOWN MESSAGE TYPE RECEIVED: " + type);
 		}
+	}
+	
+	private java.util.List<Rectangle> mapRooms = new ArrayList<>();
+	private Rectangle shopRoom = new Rectangle( 60000, -2500, 5000, 5000);
+	// TODO cleanup later
+	{ 
+		mapRooms.add(new Rectangle(-10000, -10000, 20000, 20000));
+		mapRooms.add(new Rectangle( 25000, -20000, 10000, 10000));
+		mapRooms.add(new Rectangle( 25000, -5000, 10000, 10000));
+		mapRooms.add(new Rectangle( 25000, 10000, 10000, 10000));
+		mapRooms.add(new Rectangle( 45000, -2500, 5000, 5000));
+
+		mapRooms.add(shopRoom);
+
+//		mapRooms.add(new Rectangle(-25000, -26000, 40000, 1000));
+//		mapRooms.add(new Rectangle(-25000, +25000, 40000, 1000));
+	}
+	
+	private Vec2 tryToMovePlayerToward(PlayerInfo player, Vec2 target) {
+
+		Vec2 playerVec = new Vec2(player.x, player.y);
+		boolean validMove = false;
+		if (playerTargetLocations.get(player).type == PlayerActionType.DIG) {
+			validMove = true;
+		}
+		if (!validMove) {
+			for (Rectangle room : mapRooms) {
+				if (room.contains(new Point(target.x, target.y))) {
+					validMove = true;
+					break;
+				}
+			}
+		}
+		if (!validMove) {
+			// If outside of valid room, see if currently in a tunnel
+			boolean inTunnel = false;
+			for (TunnelSegment tunnel : state.getPlayerTunnels(player.id)) {
+				
+				Vec2 tunnelStart = state.getTunnelNodePosition(tunnel.node1);//new Vec2(tunnel.node1.x, tunnel.node1.y);
+				Vec2 tunnelEnd = state.getTunnelNodePosition(tunnel.node2); //new Vec2(tunnel.node2.x, tunnel.node2.y)/*; semicolon sus ඞ*/;
+				Vec2 tunnelVec = tunnelEnd.minus(tunnelStart);
+				
+				double tunnelLength = tunnelEnd.minus(tunnelStart).magnitude();
+				
+				double distanceAlongTunnel = VectorMath.projectPointOntoLine(target, tunnelStart, tunnelEnd);
+				Vec2 projectedTarget = tunnelStart.add(tunnelVec.multiply(distanceAlongTunnel/tunnelVec.magnitude()));
+				double distanceToTunnel = projectedTarget.distanceTo(target);
+				
+//				System.out.println("distanceAlongTunnel: " + distanceAlongTunnel);
+//				System.out.println("distanceToTunnel: " + distanceToTunnel);
+//				System.out.println("projectedTarget: " + projectedTarget);
+//				System.out.println("tunnel: " + tunnelStart + " -> " + tunnelEnd);
+				
+				if (distanceAlongTunnel >= -60 && distanceAlongTunnel <= tunnelLength + 60) {
+					// within tunnel length
+					if (distanceToTunnel <= 220) {
+						// close enough to tunnel
+						inTunnel = true;
+						break;
+					}
+					else if (distanceToTunnel <= TUNNEL_SIZE) {
+						double currentDistanceAlongTunnel = VectorMath.projectPointOntoLine(playerVec, tunnelStart, tunnelEnd);
+						Vec2 currentProjection = tunnelStart.add(tunnelEnd.minus(tunnelStart).multiply(currentDistanceAlongTunnel));
+						double currentDistanceToTunnel = currentProjection.distanceTo(playerVec);
+						if (distanceToTunnel < currentDistanceToTunnel) {
+							// allow movement back towards in bounds
+							inTunnel = true;
+							break;
+						}
+					}
+				}
+				else if (distanceAlongTunnel >= -100 && distanceAlongTunnel <= tunnelLength + 100) {
+					// outside of tunnel length
+					double currentDistanceAlongTunnel = VectorMath.projectPointOntoLine(playerVec, tunnelStart, tunnelEnd);
+					if (distanceAlongTunnel < currentDistanceAlongTunnel) {
+						// allow movement back towards tunnel
+						inTunnel = true;
+						break;
+					}
+				}
+			}
+			if (!inTunnel) {
+//				return new Vec2(player.x, player.y);
+				return null;
+			}
+		}
+		return target;
 	}
 	
 	private void movePlayer(PlayerInfo player) {
@@ -215,30 +558,90 @@ public class CoinGame {
 			return;
 		}
 		Vec3 interpolatedPosition = getInterpolatedPlayerPosition(player);
-		player.x = interpolatedPosition.x;
-		player.y = interpolatedPosition.y;
-		player.x = Math.max(Math.min(player.x, 10000), -10000);
-		player.y = Math.max(Math.min(player.y, 10000), -10000);
+		Vec2 targetPosition = interpolatedPosition.xy();
+		
+		Vec2 resultPosition = tryToMovePlayerToward(player, targetPosition);
+		if (resultPosition == null) {
+			playerTargetLocations.remove(player);
+			changedLocations.add(player.id);
+			sendLocations(false);
+			return;
+		}
+		
+		// TODO add check if player actually moved here.
+		// if no movement, send info to client
+		Vec2 previousPosition = new Vec2(player.x, player.y);
+		player.x = resultPosition.x;
+		player.y = resultPosition.y;
 
-		if (playerTargetLocations.containsKey(player)) {
-			Vec3 fullTarget = playerTargetLocations.get(player);
-			if(interpolatedPosition == fullTarget) {
-				playerTargetLocations.remove(player);
-				System.out.println(player.id + " reached destination");
+		PlayerAction action = playerTargetLocations.get(player);;
+		Vec3 fullTarget = action.targetPosition;
+		
+		if(interpolatedPosition == fullTarget) {
+			playerTargetLocations.remove(player);
+			System.out.println(player.id + " reached destination");
+		}
+		else {
+			fullTarget.z = currentTime();
+		}
+		
+		
+
+		JSONArray nodesArr = new JSONArray();
+		JSONArray segmentsArr = new JSONArray();
+		if (action.type == PlayerActionType.COLLAPSE || action.type == PlayerActionType.DIG) {
+			TunnelNode node = state.updateTunnelNodePosition(action.nodeid, resultPosition);
+			nodesArr.put(new JSONObject(node));
+			double distanceMoved = previousPosition.distanceTo(resultPosition);
+			state.playerGainsExp(player, (int)(distanceMoved/100));
+		}
+		if(interpolatedPosition == fullTarget) {
+			// TODO resolve collapse,dig actions
+			if (action.type == PlayerActionType.DIG) {
+				if (action.targetNodeId != -1 && action.segment != null && action.targetNodeId != action.nodeid) {
+					if (action.segment.node1 == action.nodeid) {
+						action.segment.node1 = action.targetNodeId;
+					}
+					else if (action.segment.node2 == action.nodeid) {
+						action.segment.node2 = action.targetNodeId;
+					}
+					state.updateTunnelSegment(action.segment);
+					state.deleteNode(action.nodeid);
+					nodesArr.put(new JSONObject(state.getTunnelNode(action.nodeid)).put("delete", true));
+					segmentsArr.put(new JSONObject(action.segment));
+				}
 			}
-			else {
-				fullTarget.z = currentTime();
+			else if (action.type == PlayerActionType.COLLAPSE) {
+				segmentsArr.put(new JSONObject(action.segment).put("delete", true));
+				nodesArr.put(new JSONObject(state.getTunnelNode(action.nodeid)).put("delete", true));
+				int remainingNodeId = (action.segment.node1 == action.nodeid) ? action.segment.node2 : action.segment.node1;
+				Set<TunnelSegment> segmentsAttachedToRemainingNode = state.getTunnelSegmentFrom(remainingNodeId, player.id);
+				state.collapseTunnelSegment(action.segment.id, player.id);
+				state.deleteNode(action.nodeid);
+				if (segmentsAttachedToRemainingNode.size() == 1) {
+					nodesArr.put(new JSONObject(state.getTunnelNode(remainingNodeId)).put("delete", true));
+					state.deleteNode(remainingNodeId);
+				}
 			}
 		}
+		if (nodesArr.length() > 0 || segmentsArr.length() > 0) {
+			JSONObject obj = new JSONObject()
+					.put("type", MessageType.TUNNEL)
+					.put("tunnelnodes", nodesArr)
+					.put("tunnelsegments", segmentsArr);
+			sendToOne(obj.toString(), idToContextMap.get(player.id));
+		}
+		
 		changedLocations.add(player.id);
-		state.updatePlayerLocation(player);
+		state.updatePlayerInfo(player);
 	}
 	
 	private Vec3 getInterpolatedPlayerPosition(PlayerInfo player) {
 		if (!playerTargetLocations.containsKey(player)) {
 			return new Vec3(player.x, player.y, 0);
 		}
-		Vec3 fullTarget = playerTargetLocations.get(player);
+		PlayerAction action = playerTargetLocations.get(player);;
+		Vec3 fullTarget = action.targetPosition;
 		Vec2 targetLocation = fullTarget.xy();
 		int elapsedTime = currentTime() - fullTarget.z;
 		
@@ -277,12 +680,49 @@ public class CoinGame {
 		}
 	}
 	
+	private Vec2 getPosForCoinInRoom(Rectangle room, double spawnRangeMultiplier) {
+		int centerx = room.x + room.width/2;
+		int offsetx = (int) (Util.gaussian() * room.width * spawnRangeMultiplier / 2);
+		int coinx = centerx + offsetx;
+		
+		int centery = room.y + room.height/2;
+		int offsety = (int) (Util.gaussian() * room.height * spawnRangeMultiplier / 2);
+		int coiny = centery + offsety;
+		return new Vec2(coinx, coiny);
+	}
+	
+	private int getValueForCoin(int min, int max) {
+		return min + (int)(Math.abs(Util.gaussian()) * (max - min));
+	}
+
 	private void addCoin() {
-		int x = (int)(Util.reverseGaussian() * 20000 - 10000);
-		int y = (int)(Util.reverseGaussian() * 20000 - 10000);
-		double skewed = Math.abs(Util.gaussian() - 0.5) * 2;
-		int value = (int)(skewed * 9) + 1;
-		state.addNewCoin(x, y, value);
+		Vec2 room0pos = getPosForCoinInRoom(mapRooms.get(0), 1.2);
+		int room0value = getValueForCoin(1, 10);
+		
+		Coin coin = state.addNewCoin(room0pos.x, room0pos.y, room0value);
+		newCoins.add(coin);
+		
+		double extra = Math.random();
+		if (extra < 0.4) {
+			// add coins to first 3 rooms outside of start
+			Rectangle room1 = mapRooms.get(1 + (int)(Math.random() * 3));
+			Vec2 room1pos = getPosForCoinInRoom(room1, 1.2);
+			int room1value = getValueForCoin(5, 20);
+
+			if (Math.random() < 0.001) {
+				room1pos = getPosForCoinInRoom(room1, 1.4);
+				room1value = getValueForCoin(80, 100);
+			}
+			Coin coin1 = state.addNewCoin(room1pos.x, room1pos.y, room1value);
+			newCoins.add(coin1);
+		}
+		else if (extra < 0.44) {
+			// will add more rooms in the future
+			Rectangle room1 = mapRooms.get(4 + (int)(Math.random() * 1));
+			Vec2 room1pos = getPosForCoinInRoom(room1, 1.2);
+			int room1value = getValueForCoin(20, 100);
+			newCoins.add(state.addNewCoin(room1pos.x, room1pos.y, room1value));
+		}
 	}
 	
 	private void gameFunction() {
@@ -343,7 +783,7 @@ public class CoinGame {
 				obj.put("y", location.y);
 				
 				if (playerTargetLocations.containsKey(info)) {
-					obj.put("target", new JSONObject(playerTargetLocations.get(info)));
+					obj.put("target", new JSONObject(playerTargetLocations.get(info).targetPosition));
 				}
 				players.put(obj);
 			}
@@ -352,41 +792,30 @@ public class CoinGame {
 			jo.put("players", players);
 
 		sendAllPlayerLocations = false;
+
+		JSONArray coinsArray = new JSONArray();
+		while(!newCoins.isEmpty()) {
+			coinsArray.put(new JSONObject(newCoins.remove()));
+		}
+		while(!deletedCoins.isEmpty()) {
+			coinsArray.put(new JSONObject(deletedCoins.remove()).put("delete", true));
+		}
+		
 		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
-			if (ctx.isOpen()) {
-				JSONArray coinsArray = new JSONArray();
-				Set<Integer> alreadySharedCoins = contextToCoinsShared.get(ctx);
-				for(Coin coin : state.getCoins()) {
-					if (!alreadySharedCoins.contains(coin.id)) {
-						coinsArray.put(new JSONObject(coin));
-						alreadySharedCoins.add(coin.id);
-						
-						if (coinsArray.length() > 1000) {
-							break;
-						}
-					}
-				}
-				
-				// always share all deleted coins
-				while(!deletedCoins.isEmpty()) {
-					coinsArray.put(new JSONObject(deletedCoins.remove()).put("delete", true));
-				}
-				if (coinsArray.length() > 0) {
-					jo.put("coins", coinsArray);
-//					System.err.println("sending " + coinsArray.length() + " coins");
-				}
-				
-				// if at least 1 thing to send
-				// TODO heartbeat needs to be recorded per connection. 
-				// if I start sending only data that is in viewport,
-				// then need to make sure that all connections get periodic heartbeats.
-				if (heartbeat || jo.length() > 1) {
-					try {
-						ctx.sendMessage(new TextMessage(jo.toString()));
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
+			// TODO share all coins on connect then only send new coins to all connections
+			// that way no need to keep list of shared coins per connection
+			// also no need to iterate through entire list of coins per connection
+
+			if (coinsArray.length() > 0) {
+				jo.put("coins", coinsArray);
+			}
+			
+			// if at least 1 thing to send
+			// TODO heartbeat needs to be recorded per connection. 
+			// if I start sending only data that is in viewport,
+			// then need to make sure that all connections get periodic heartbeats.
+			if (heartbeat || jo.length() > 1) {
+				sendToOne(jo.toString(), ctx);
 			}
 		}
 		
@@ -415,13 +844,23 @@ public class CoinGame {
 	}
 	
 	private void sendToAll(String message) {
+		TextMessage textMessage = new TextMessage(message);
 		for (WebSocketSession ctx : contextToPlayerInfoMap.keySet()) {
-			if (ctx.isOpen()) {
-				try {
-					ctx.sendMessage(new TextMessage(message));
-				} catch (IOException e) {
-					e.printStackTrace();
+			sendToOne(textMessage, ctx);
+		}
+	}
+
+	private void sendToOne(String message, WebSocketSession ctx) {
+		sendToOne(new TextMessage(message), ctx);
+	}
+	private void sendToOne(TextMessage message, WebSocketSession ctx) {
+		if (ctx.isOpen()) {
+			try {
+				synchronized(ctx) {
+					ctx.sendMessage(message);
 				}
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
 		}
 	}
@@ -432,11 +871,7 @@ public class CoinGame {
 			playerMapping.put("" + accountInfo.id, accountInfo.handle);
 		}
 		playerMapping.put("type", MessageType.MAPPING);
-		try {
-			ctx.sendMessage(new TextMessage(playerMapping.toString()));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		sendToOne(playerMapping.toString(), ctx);
 	}
 	
 	private void databaseSaveFunction() {
@@ -455,14 +890,10 @@ public class CoinGame {
 	}
 	
 	private void sendBye(WebSocketSession ctx, String message) {
-		try {
-			JSONObject obj = new JSONObject()
-					.put("type", MessageType.BYE)
-					.put("message", message);
-			ctx.sendMessage(new TextMessage(obj.toString()));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		JSONObject obj = new JSONObject()
+				.put("type", MessageType.BYE)
+				.put("message", message);
+		sendToOne(obj.toString(), ctx);
 	}
 	
 	@Override

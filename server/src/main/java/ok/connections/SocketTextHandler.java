@@ -15,7 +15,7 @@ public class SocketTextHandler extends TextWebSocketHandler {
 	@Override
 	public void handleTextMessage(WebSocketSession session, TextMessage message)
 			throws InterruptedException, IOException {
-		System.out.println("received message " + message);
+		System.out.println("received message " + message.getPayload());
 		Application.coingame.receiveMessage(session, message);
 		
 //		System.err.println("received message");

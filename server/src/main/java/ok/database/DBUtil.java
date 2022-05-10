@@ -78,4 +78,24 @@ public class DBUtil {
 		}
 		return false;
 	}
+	
+	public static boolean doesTableHaveColumn(String tableName, String columnName) {
+		try {
+			Statement stmt = connection.createStatement();
+			try (ResultSet rs = stmt.executeQuery("SELECT * FROM " + tableName + " LIMIT 1;")) {
+				while (rs.next()) {
+					ResultSetMetaData rsMetaData = rs.getMetaData();
+					int count = rsMetaData.getColumnCount();
+					for (int i = 1; i <= count; i++) {
+						if (rsMetaData.getColumnName(i).equals(columnName)) {
+							return true;
+						}
+					}
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return false;
+	}
 }
