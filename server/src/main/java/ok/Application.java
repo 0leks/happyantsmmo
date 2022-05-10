@@ -14,12 +14,15 @@ public class Application {
 
 	public static CoinGame coingame;
 	public static void main(String[] args) {
+		SpringApplication.run(Application.class, args);
+		try {
+			Thread.sleep(5000);
+		} catch (InterruptedException e) {
+		}
 		if(DB.isConnected()) {
 			coingame = new CoinGame();
 			coingame.start();
 		}
-		
-		SpringApplication.run(Application.class, args);
 	}
 
 //	@Bean

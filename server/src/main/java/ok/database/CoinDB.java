@@ -86,7 +86,7 @@ public class CoinDB {
 
 	public CoinDB(Connection connection) {
 		this.connection = connection;
-		createCoinGameTables();
+//		createCoinGameTables();
 		
 		try {
 			getPlayerInfoStatement = connection.prepareStatement(getPlayerInfo);
