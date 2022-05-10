@@ -286,7 +286,9 @@ public class CoinDB {
 			}
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
+			DB.debug += "\n" + e.getMessage() + "\n";
 		}
+		DB.debug += "\n loaded " + list.size() + " coins \n";
 		return list;
 	}
 	
