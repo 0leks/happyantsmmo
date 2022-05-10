@@ -145,6 +145,14 @@ public class CoinDB {
 			}
 		}
 
+		if (!DBUtil.doesTableHaveColumn(COINS_TABLE, "value")) {
+			try (Statement stmt = connection.createStatement()) {
+				stmt.execute(createCoinsTable_addValueCol);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
 //		if (!DBUtil.doesTableExist(TUNNELS_TABLE)) {
 //			try (Statement stmt = connection.createStatement()) {
 //				stmt.execute(createTunnelsTable);
