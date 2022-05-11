@@ -326,11 +326,16 @@ function receiveTunnels(data) {
                 delete tunnelSegments[tunnel.id];
             }
             else {
-                tunnelSegments[tunnel.id] = {
-                    'id': tunnel.id,
-                    'nodeid1': tunnel.node1,
-                    'nodeid2': tunnel.node2
-                };
+                if (tunnel.node1 in tunnelNodes && tunnel.node2 in tunnelNodes) {
+                    tunnelSegments[tunnel.id] = {
+                        'id': tunnel.id,
+                        'nodeid1': tunnel.node1,
+                        'nodeid2': tunnel.node2
+                    }
+                }
+                else {
+                    console.log("discarding " + tunnel);
+                }
             }
         });
     }
