@@ -334,7 +334,8 @@ function receiveTunnels(data) {
                     }
                 }
                 else {
-                    console.log("discarding " + tunnel);
+                    console.log("discarding tunnel:");
+                    console.log(tunnel)
                 }
             }
         });
@@ -608,7 +609,7 @@ function getPlayerInfo(id, key) {
 
 function getPlayerColor(playerid) {
     if (playerid in playerInfos) {
-        if (playerInfos[playerid][''] < maxExperience) {
+        if (playerInfos[playerid]['numcoins'] < maxExperience) {
             return [0.1, 0.7, 0.2, 1.0];
         }
         else {
