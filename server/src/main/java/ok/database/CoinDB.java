@@ -86,7 +86,7 @@ public class CoinDB {
 
 	public CoinDB(Connection connection) {
 		this.connection = connection;
-		createCoinGameTables();
+//		createCoinGameTables();
 		
 		try {
 			getPlayerInfoStatement = connection.prepareStatement(getPlayerInfo);
@@ -140,6 +140,14 @@ public class CoinDB {
 		if (!DBUtil.doesTableExist(COINS_TABLE)) {
 			try (Statement stmt = connection.createStatement()) {
 				stmt.execute(createCoinsTable);
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+		}
+
+		if (!DBUtil.doesTableHaveColumn(COINS_TABLE, "value")) {
+			try (Statement stmt = connection.createStatement()) {
+				stmt.execute(createCoinsTable_addValueCol);
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}
@@ -286,7 +294,9 @@ public class CoinDB {
 			}
 		} catch (SQLException e) {
 			System.out.println(e.getMessage());
+			DB.debug += "\n" + e.getMessage() + "\n";
 		}
+		DB.debug += "\n loaded " + list.size() + " coins \n";
 		return list;
 	}
 	

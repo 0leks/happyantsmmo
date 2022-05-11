@@ -59,20 +59,22 @@ public class RESTController {
 		
 		JSONObject jo = new JSONObject();
 		jo.put("total-accounts", accounts.size());
-		jo.put("currently-playing", Application.coingame.getNumConnections());
-		JSONArray accountArray = new JSONArray();
-		accounts.forEach(account -> {
-			System.err.println(account.handle);
-			JSONObject obj = new JSONObject();
-			obj.put("handle", account.handle);
-			PlayerInfo info = DB.coinsDB.getPlayerInfo(account.id);
-			if (info != null) {
-				obj.put("numcoins", info.numcoins);
-			}
-			accountArray.put(obj);
-		});
-		System.err.println(accountArray.toString());
-		jo.put("account-list", accountArray);
+		if (Application.coingame != null) {
+			jo.put("currently-playing", Application.coingame.getNumConnections());
+			JSONArray accountArray = new JSONArray();
+			accounts.forEach(account -> {
+				System.err.println(account.handle);
+				JSONObject obj = new JSONObject();
+				obj.put("handle", account.handle);
+				PlayerInfo info = DB.coinsDB.getPlayerInfo(account.id);
+				if (info != null) {
+					obj.put("numcoins", info.numcoins);
+				}
+				accountArray.put(obj);
+			});
+			System.err.println(accountArray.toString());
+			jo.put("account-list", accountArray);
+		}
 		return jo.toString();
 	}
 	
