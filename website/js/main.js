@@ -13,6 +13,13 @@ function refreshPageStatus() {
         }).join("");
     });
     
+
+    if (getSessionToken() == null) {
+        id("play-coin-game").disabled = true;
+    }
+    else {
+        id("play-coin-game").disabled = false;
+    }
 }
 
 refreshPageStatus();
