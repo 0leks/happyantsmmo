@@ -20,3 +20,23 @@ add the eclipse maven project under /server, install, run as java application wi
 
 TODO https://docs.microsoft.com/en-us/azure/app-service/quickstart-java?tabs=javase&pivots=platform-windows
 https://docs.microsoft.com/en-us/azure/static-web-apps/custom-domain-azure-dns
+
+TODO:
+	non-euclidean.
+	1st room is x distance from center no matter which direction you go
+	2nd room is 2x distance from center, so on and so forth
+	
+	make stuff super far apart, but have some sort of indicator when there is nothing up ahead
+	
+	not enough funding
+	
+	dont allow length 0 tunnels
+	
+	admin ability to give anyone coins
+	fix google already logged in cant log out issue
+	
+	fix disconnect reconnect name becomes null
+	
+	add hotkeys for digging and collapsing tunnels
+	
+	

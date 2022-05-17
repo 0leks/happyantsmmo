@@ -326,11 +326,17 @@ function receiveTunnels(data) {
                 delete tunnelSegments[tunnel.id];
             }
             else {
-                tunnelSegments[tunnel.id] = {
-                    'id': tunnel.id,
-                    'nodeid1': tunnel.node1,
-                    'nodeid2': tunnel.node2
-                };
+                if (tunnel.node1 in tunnelNodes && tunnel.node2 in tunnelNodes) {
+                    tunnelSegments[tunnel.id] = {
+                        'id': tunnel.id,
+                        'nodeid1': tunnel.node1,
+                        'nodeid2': tunnel.node2
+                    }
+                }
+                else {
+                    console.log("discarding tunnel:");
+                    console.log(tunnel)
+                }
             }
         });
     }
@@ -603,7 +609,7 @@ function getPlayerInfo(id, key) {
 
 function getPlayerColor(playerid) {
     if (playerid in playerInfos) {
-        if (playerInfos[playerid][''] < maxExperience) {
+        if (playerInfos[playerid]['numcoins'] < maxExperience) {
             return [0.1, 0.7, 0.2, 1.0];
         }
         else {
@@ -932,18 +938,19 @@ function animateScene() {
             textContext.fillText(getPlayerInfo(id, 'handle'), playerPositions[id][0], -playerPositions[id][1] - 10*WORLD_SCALE);
             textContext.fillText('' + getPlayerInfo(id, 'numcoins'), playerPositions[id][0], -playerPositions[id][1] + 15*WORLD_SCALE);
             // textContext.fillText('tunnel: ' + getPlayerInfo(id, 'tunnelingExp'), playerPositions[id][0], -playerPositions[id][1] + 40*WORLD_SCALE);
+            
+            if (getPlayerInfo(id, 'hat') == 1) {
+                textContext.fillStyle = '#FFFFFF';
+                textContext.fillText('hat', playerPositions[id][0], -playerPositions[id][1] - 35*WORLD_SCALE);
+                textContext.fillStyle = '#000000';
+                textContext.fillText('hat', playerPositions[id][0], -playerPositions[id][1] - 34*WORLD_SCALE);
+            }
         }
     }
     textContext.fillText(loadingMessage, 0, 0);
     textContext.fillText("Ye Olde Shoppe", 62500, 0);
     
     myPosition = getPlayerPosition(myID);
-    if (getPlayerInfo(myID, 'hat') == 1) {
-        textContext.fillStyle = '#FFFFFF';
-        textContext.fillText('hat', myPosition[0], -myPosition[1] - 35*WORLD_SCALE);
-        textContext.fillStyle = '#000000';
-        textContext.fillText('hat', myPosition[0], -myPosition[1] - 34*WORLD_SCALE);
-    }
     
     for (const [id, segment] of Object.entries(tunnelSegments)) {
         drawTunnelSegment(tunnelNodes[segment.nodeid1], tunnelNodes[segment.nodeid2]);

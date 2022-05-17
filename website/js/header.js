@@ -59,6 +59,7 @@ $(function(){
         id("sign-out").addEventListener("click", () => {
             signOut();
             switchToSignedOut();
+            location.reload();
         });
         id("sign-in").addEventListener("click", () => document.location.href="/signin");
         refreshPageStatus();
