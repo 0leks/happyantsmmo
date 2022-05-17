@@ -316,15 +316,13 @@ public class CoinGame {
 		double proposedLength = node1Pos.distanceTo(node2Pos);
 		int maxLength = Constants.getMaxSegmentLength(player._getTunnelingLevel());
 		
+		if (proposedLength < Constants.MIN_TUNNEL_LENGTH) {
+			System.err.println("ERROR DIGGING TUNNEL: too short " + proposedLength);
+			return;
+		}
 		if (proposedLength > maxLength) {
 			System.err.println("ERROR DIGGING TUNNEL: too long " + proposedLength);
 			return;
-//			Vec2 tunnelVector = node2Pos.minus(node1Pos);
-//			Vec2 croppedVector = tunnelVector.multiply(maxLength / tunnelVector.magnitude());
-//			node2Pos = node1Pos.add(croppedVector);
-//			
-//			TunnelNode node = state.createNewTunnelNode(node2Pos.x, node2Pos.y, player.id);
-//			nodeid2 = node.id;
 		}
 		
 		// both nodes in same room == cheaper
@@ -477,6 +475,8 @@ public class CoinGame {
 		mapRooms.add(new Rectangle( 45000, -2500, 5000, 5000));
 
 		mapRooms.add(shopRoom);
+
+//		mapRooms.add(new Rectangle( -30000, -2500, 5000, 5000));
 
 //		mapRooms.add(new Rectangle(-25000, -26000, 40000, 1000));
 //		mapRooms.add(new Rectangle(-25000, +25000, 40000, 1000));

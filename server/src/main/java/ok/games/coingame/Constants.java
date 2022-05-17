@@ -4,6 +4,7 @@ public class Constants {
 
 	public static final int UNLOCK_TUNNELING_COST = 500;
 	public static final int CROWN_COST = 10000;
+	public static final int MIN_TUNNEL_LENGTH = 200;
 
 	
 	public static final int getLevelFromExperience(int exp) {
