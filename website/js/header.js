@@ -51,10 +51,10 @@ function refreshPageStatus() {
     }
 }
 
-document.body.prepend(document.createElement("header"));
+// document.body.prepend(document.createElement("header"));
 
-$(function(){
-    $("header").load("/header.html", function() {
+// $(function(){
+//     $("header").load("/header.html", function() {
         console.log("loaded header");
         id("sign-out").addEventListener("click", () => {
             signOut();
@@ -66,5 +66,5 @@ $(function(){
         if (document.location.href.endsWith('/signin/')) {
             switchToShowNeither();
         }
-    });
-});
+//     });
+// });
