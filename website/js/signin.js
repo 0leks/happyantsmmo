@@ -45,14 +45,14 @@ function onSuccess(googleUser) {
 function onFailure(error) {
     console.log(error);
 }
-function renderGoogleButton() {
-    gapi.signin2.render('my-signin2', {
-        'scope': 'profile email',
-        'width': 200,
-        'height': 45,
-        'longtitle': true,
-        'theme': 'light',
-        'onsuccess': onSuccess,
-        'onfailure': onFailure
-    });
-}
+// function renderGoogleButton() {
+//     gapi.signin2.render('my-signin2', {
+//         'scope': 'profile email',
+//         'width': 200,
+//         'height': 45,
+//         'longtitle': true,
+//         'theme': 'light',
+//         'onsuccess': onSuccess,
+//         'onfailure': onFailure
+//     });
+// }
